@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:akshaja_insignia/src/data/local/photo_database.dart';
 import 'package:akshaja_insignia/src/data/remote/photo_api_client.dart';
@@ -78,6 +79,23 @@ class PhotoRepository {
 
   Future<bool> uploadPhoto(PhotoRecord record, {bool force = false}) {
     return _tryUpload(record, force: force);
+  }
+
+  Future<bool> deleteLocalCopy(
+    PhotoRecord record, {
+    bool onlyUploaded = true,
+  }) async {
+    if (onlyUploaded && record.uploadStatus != UploadStatus.uploaded) {
+      return false;
+    }
+
+    final file = File(record.filePath);
+    if (await file.exists()) {
+      await file.delete();
+    }
+
+    _notifyChanges();
+    return true;
   }
 
   Future<void> syncPending() async {

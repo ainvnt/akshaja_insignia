@@ -140,6 +140,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _deleteLocalCopy(PhotoRecord photo) async {
+    final localFile = File(photo.filePath);
+    final hasLocalFile = localFile.existsSync();
+    if (!hasLocalFile) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Local file already removed')),
+      );
+      return;
+    }
+
+    if (photo.uploadStatus != UploadStatus.uploaded) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Upload the photo first, then delete local copy'),
+        ),
+      );
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete local copy?'),
+            content: const Text(
+              'This will remove the file from device storage. '
+              'Cloud copy will remain available.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    final deleted = await widget.repository.deleteLocalCopy(photo);
+    await _loadPhotos();
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(deleted
+            ? 'Local copy deleted'
+            : 'Could not delete local copy'),
+      ),
+    );
+  }
+
   Future<void> _openCamera() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -178,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 56,
         height: 56,
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _brokenImagePlaceholder(),
+        errorBuilder: (_, _, _) => _cloudOnlyPlaceholder(),
       );
     }
 
@@ -192,6 +258,41 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.grey.shade300,
       alignment: Alignment.center,
       child: const Icon(Icons.broken_image),
+    );
+  }
+
+  Widget _cloudOnlyPlaceholder() {
+    return Container(
+      width: 56,
+      height: 56,
+      color: Colors.blueGrey.shade100,
+      alignment: Alignment.center,
+      child: const Icon(Icons.cloud_done, color: Colors.green),
+    );
+  }
+
+  Widget _compactActionIcon({
+    required IconData icon,
+    required String tooltip,
+    VoidCallback? onTap,
+    Color? color,
+  }) {
+    final disabled = onTap == null;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Icon(
+            icon,
+            size: 18,
+            color: disabled ? Colors.grey : color,
+          ),
+        ),
+      ),
     );
   }
 
@@ -268,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final previousFolder =
             index == 0 ? null : _directoryLabel(_photos[index - 1]);
         final showHeader = index == 0 || previousFolder != folderLabel;
+        final hasLocalFile = File(photo.filePath).existsSync();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,42 +400,34 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               isThreeLine: true,
               trailing: SizedBox(
-                width: 92,
+                width: 90,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      onPressed: () => _uploadSinglePhoto(photo),
-                      icon: Icon(
-                        photo.uploadStatus == UploadStatus.uploaded
-                            ? Icons.cloud_done
-                            : Icons.cloud_upload,
-                        size: 20,
-                        color: photo.uploadStatus == UploadStatus.uploaded
-                            ? Colors.green
-                            : Colors.orange,
-                      ),
+                    _compactActionIcon(
+                      onTap: () => _uploadSinglePhoto(photo),
+                      icon: photo.uploadStatus == UploadStatus.uploaded
+                          ? Icons.cloud_done
+                          : Icons.cloud_upload,
+                      color: photo.uploadStatus == UploadStatus.uploaded
+                          ? Colors.green
+                          : Colors.orange,
                       tooltip: photo.uploadStatus == UploadStatus.uploaded
                           ? 'Reupload'
                           : 'Upload',
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 28,
-                        height: 28,
-                      ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => _openSavedPhotoPreview(photo),
-                      icon: const Icon(Icons.visibility, size: 20),
+                    _compactActionIcon(
+                      onTap: () => _openSavedPhotoPreview(photo),
+                      icon: Icons.visibility,
                       tooltip: 'Preview',
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 28,
-                        height: 28,
-                      ),
+                    ),
+                    _compactActionIcon(
+                      onTap: hasLocalFile ? () => _deleteLocalCopy(photo) : null,
+                      icon: Icons.delete_outline,
+                      tooltip: hasLocalFile
+                          ? 'Delete local copy'
+                          : 'Local copy deleted',
                     ),
                   ],
                 ),
