@@ -42,5 +42,20 @@ class PhotoApiClient {
     }
   }
 
+  Future<Uint8List?> downloadPhoto(PhotoRecord record) async {
+    try {
+      final downloadUri = Uri.parse(
+        S3PathService.publicUrlForRecord(record),
+      );
+      final response = await http.get(downloadUri);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return Uint8List.fromList(response.bodyBytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void close() {}
 }

@@ -221,7 +221,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openSavedPhotoPreview(PhotoRecord photo) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SavedPhotoPreviewScreen(photo: photo),
+        builder: (_) => SavedPhotoPreviewScreen(
+          photo: photo,
+          repository: widget.repository,
+        ),
       ),
     );
   }
@@ -229,6 +232,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildThumbnail(PhotoRecord photo) {
     final localFile = File(photo.filePath);
     if (localFile.existsSync()) {
+      if (photo.filePath.toLowerCase().endsWith('.avif')) {
+        return AvifImage.file(
+          localFile,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _brokenImagePlaceholder(),
+        );
+      }
+
       return Image.file(
         localFile,
         width: 56,

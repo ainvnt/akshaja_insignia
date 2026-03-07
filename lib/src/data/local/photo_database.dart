@@ -72,6 +72,21 @@ class PhotoDatabase {
     );
   }
 
+  Future<void> updateFilePath({
+    required String photoId,
+    required String filePath,
+  }) async {
+    final db = await _db;
+    await db.update(
+      _tableName,
+      <String, Object?>{
+        'file_path': filePath,
+      },
+      where: 'id = ?',
+      whereArgs: <Object?>[photoId],
+    );
+  }
+
   Future<List<PhotoRecord>> fetchAll() async {
     final db = await _db;
     final rows = await db.query(

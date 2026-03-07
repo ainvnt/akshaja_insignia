@@ -7,6 +7,7 @@ import 'package:akshaja_insignia/src/domain/photo_draft.dart';
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/services/network_service.dart';
 import 'package:akshaja_insignia/src/services/photo_file_service.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 class PhotoRepository {
@@ -96,6 +97,28 @@ class PhotoRepository {
 
     _notifyChanges();
     return true;
+  }
+
+  Future<PhotoRecord?> restoreLocalCopyFromCloud(PhotoRecord record) async {
+    if (record.uploadStatus != UploadStatus.uploaded) {
+      return null;
+    }
+
+    final avifBytes = await _apiClient.downloadPhoto(record);
+    if (avifBytes == null) {
+      return null;
+    }
+
+    final restorePath = p.setExtension(record.filePath, '.avif');
+    final targetFile = File(restorePath);
+    await targetFile.parent.create(recursive: true);
+    await targetFile.writeAsBytes(avifBytes, flush: true);
+
+    await _database.updateFilePath(photoId: record.id, filePath: restorePath);
+
+    final updated = record.copyWith(filePath: restorePath);
+    _notifyChanges();
+    return updated;
   }
 
   Future<void> syncPending() async {

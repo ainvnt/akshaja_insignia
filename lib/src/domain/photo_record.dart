@@ -41,12 +41,13 @@ class PhotoRecord {
   final DateTime? uploadedAt;
 
   PhotoRecord copyWith({
+    String? filePath,
     UploadStatus? uploadStatus,
     DateTime? uploadedAt,
   }) {
     return PhotoRecord(
       id: id,
-      filePath: filePath,
+      filePath: filePath ?? this.filePath,
       capturedAt: capturedAt,
       latitude: latitude,
       longitude: longitude,
