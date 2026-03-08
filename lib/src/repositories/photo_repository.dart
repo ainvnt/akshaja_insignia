@@ -357,7 +357,7 @@ class PhotoRepository {
         continue;
       }
 
-      final hasEntries = await current.list(followLinks: false).isNotEmpty;
+      final hasEntries = !(await current.list(followLinks: false).isEmpty);
       if (hasEntries) {
         break;
       }
