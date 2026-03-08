@@ -259,11 +259,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     var deletedCount = 0;
     for (final photo in folder.photos) {
-      final hasLocal = File(photo.filePath).existsSync();
-      if (!hasLocal) {
-        continue;
-      }
-
       final deleted = await widget.repository.deleteLocalCopy(
         photo,
         onlyUploaded: false,

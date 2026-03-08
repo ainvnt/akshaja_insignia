@@ -139,18 +139,6 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                       _imageIdTile(_photo.id),
                       const SizedBox(height: 10),
                       _metaTile(Icons.event, 'Captured', captured),
-                      const SizedBox(height: 10),
-                      _metaTile(
-                        Icons.place,
-                        'Latitude',
-                        _photo.latitude.toStringAsFixed(6),
-                      ),
-                      const SizedBox(height: 10),
-                      _metaTile(
-                        Icons.place_outlined,
-                        'Longitude',
-                        _photo.longitude.toStringAsFixed(6),
-                      ),
                       if (canStoreLocally) ...[
                         const SizedBox(height: 18),
                         SizedBox(
@@ -200,15 +188,19 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
           color: Colors.black.withValues(alpha: 0.9),
           child: hasLocalFile
               ? (isLocalAvif
-                    ? AvifImage.file(
-                        localFile,
-                        width: double.infinity,
-                        fit: BoxFit.contain,
+                    ? _zoomablePreview(
+                        AvifImage.file(
+                          localFile,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
                       )
-                    : Image.file(
-                        localFile,
-                        width: double.infinity,
-                        fit: BoxFit.contain,
+                    : _zoomablePreview(
+                        Image.file(
+                          localFile,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
                       ))
               : FutureBuilder<Uint8List?>(
                   future: _cloudBytesFuture,
@@ -234,14 +226,16 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                       );
                     }
 
-                    return AvifImage.memory(
-                      cloudBytes,
-                      width: double.infinity,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Center(
-                        child: Text(
-                          'Image not available.',
-                          style: TextStyle(color: Colors.white70),
+                    return _zoomablePreview(
+                      AvifImage.memory(
+                        cloudBytes,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Text(
+                            'Image not available.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
                         ),
                       ),
                     );
@@ -249,6 +243,16 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _zoomablePreview(Widget child) {
+    return InteractiveViewer(
+      minScale: 1,
+      maxScale: 4,
+      panEnabled: true,
+      boundaryMargin: const EdgeInsets.all(24),
+      child: Center(child: child),
     );
   }
 

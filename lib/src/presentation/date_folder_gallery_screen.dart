@@ -50,10 +50,6 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
 
     var deletedCount = 0;
     for (final photo in _photos) {
-      final localExists = File(photo.filePath).existsSync();
-      if (!localExists) {
-        continue;
-      }
       final deleted = await widget.repository.deleteLocalCopy(
         photo,
         onlyUploaded: false,
@@ -91,10 +87,6 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
 
     var deletedCount = 0;
     for (final photo in selectedPhotos) {
-      final localExists = File(photo.filePath).existsSync();
-      if (!localExists) {
-        continue;
-      }
       final deleted = await widget.repository.deleteLocalCopy(
         photo,
         onlyUploaded: false,

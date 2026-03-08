@@ -110,12 +110,15 @@ class PhotoRepository {
     }
 
     final file = File(record.filePath);
-    if (await file.exists()) {
+    final existed = await file.exists();
+    if (existed) {
       await file.delete();
     }
 
+    await _pruneEmptyDateFolders(record.filePath);
+
     _notifyChanges();
-    return true;
+    return existed;
   }
 
   Future<PhotoRecord?> restoreLocalCopyFromCloud(PhotoRecord record) async {
@@ -275,6 +278,7 @@ class PhotoRepository {
           await file.delete();
           deletedLocalCount++;
         }
+        await _pruneEmptyDateFolders(record.filePath);
       }
     }
 
@@ -341,6 +345,26 @@ class PhotoRepository {
     await _changesController.close();
     await _database.close();
     _apiClient.close();
+  }
+
+  Future<void> _pruneEmptyDateFolders(String filePath) async {
+    var current = Directory(p.dirname(filePath));
+
+    // Expected structure: .../photos/yyyy/mm/dd/<file>
+    for (var i = 0; i < 3; i++) {
+      if (!await current.exists()) {
+        current = current.parent;
+        continue;
+      }
+
+      final hasEntries = await current.list(followLinks: false).isNotEmpty;
+      if (hasEntries) {
+        break;
+      }
+
+      await current.delete();
+      current = current.parent;
+    }
   }
 
   _S3KeyMetadata? _parseS3ObjectKey(String objectKey) {
