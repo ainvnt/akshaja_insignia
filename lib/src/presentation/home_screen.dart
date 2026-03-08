@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
@@ -257,16 +256,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    var deletedCount = 0;
-    for (final photo in folder.photos) {
-      final deleted = await widget.repository.deleteLocalCopy(
-        photo,
-        onlyUploaded: false,
-      );
-      if (deleted) {
-        deletedCount++;
-      }
-    }
+    final deletedCount = await widget.repository.deleteLocalCopiesForDateFolder(
+      folder.key,
+      folder.photos,
+    );
 
     await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     if (!mounted) {

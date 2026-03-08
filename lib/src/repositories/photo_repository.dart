@@ -121,6 +121,49 @@ class PhotoRepository {
     return existed;
   }
 
+  Future<int> deleteLocalCopiesForDateFolder(
+    String dateKey,
+    List<PhotoRecord> records,
+  ) async {
+    var deletedCount = 0;
+
+    final docsDir = await getApplicationDocumentsDirectory();
+    final parts = dateKey.split('/');
+    if (parts.length == 3) {
+      final folderPath = p.join(
+        docsDir.path,
+        'photos',
+        parts[0],
+        parts[1],
+        parts[2],
+      );
+      final folder = Directory(folderPath);
+      if (await folder.exists()) {
+        await for (final entity in folder.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File) {
+            deletedCount++;
+          }
+        }
+        await folder.delete(recursive: true);
+      }
+    }
+
+    for (final record in records) {
+      final file = File(record.filePath);
+      if (await file.exists()) {
+        await file.delete();
+        deletedCount++;
+      }
+      await _pruneEmptyDateFolders(record.filePath);
+    }
+
+    _notifyChanges();
+    return deletedCount;
+  }
+
   Future<PhotoRecord?> restoreLocalCopyFromCloud(PhotoRecord record) async {
     if (record.uploadStatus != UploadStatus.uploaded) {
       return null;

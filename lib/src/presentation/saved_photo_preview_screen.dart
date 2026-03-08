@@ -28,6 +28,8 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
   late PhotoRecord _photo;
   Future<Uint8List?>? _cloudBytesFuture;
   bool _restoring = false;
+  final TransformationController _zoomController = TransformationController();
+  TapDownDetails? _doubleTapDetails;
 
   @override
   void initState() {
@@ -64,6 +66,7 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
         _photo = restored;
         _cloudBytesFuture = _loadCloudBytes();
       });
+      _resetZoom();
 
       ScaffoldMessenger.of(
         context,
@@ -75,6 +78,12 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _zoomController.dispose();
+    super.dispose();
   }
 
   @override
@@ -247,13 +256,80 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
   }
 
   Widget _zoomablePreview(Widget child) {
-    return InteractiveViewer(
-      minScale: 1,
-      maxScale: 4,
-      panEnabled: true,
-      boundaryMargin: const EdgeInsets.all(24),
-      child: Center(child: child),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTapDown: (details) {
+            _doubleTapDetails = details;
+          },
+          onDoubleTap: _toggleZoomAtTap,
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                transformationController: _zoomController,
+                minScale: 1,
+                maxScale: 5,
+                panEnabled: true,
+                scaleEnabled: true,
+                constrained: false,
+                boundaryMargin: const EdgeInsets.all(120),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Center(child: child),
+                ),
+              ),
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: ValueListenableBuilder<Matrix4>(
+                  valueListenable: _zoomController,
+                  builder: (context, matrix, _) {
+                    final zoomed = matrix.getMaxScaleOnAxis() > 1.01;
+                    if (!zoomed) {
+                      return const SizedBox.shrink();
+                    }
+                    return FloatingActionButton.small(
+                      heroTag: 'previewZoomReset',
+                      onPressed: _resetZoom,
+                      tooltip: 'Reset zoom',
+                      child: const Icon(Icons.center_focus_strong),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  void _toggleZoomAtTap() {
+    final currentScale = _zoomController.value.getMaxScaleOnAxis();
+    if (currentScale > 1.01) {
+      _resetZoom();
+      return;
+    }
+
+    final details = _doubleTapDetails;
+    if (details == null) {
+      return;
+    }
+
+    const targetScale = 2.5;
+    final position = details.localPosition;
+    _zoomController.value = Matrix4.identity()
+      ..translate(
+        -position.dx * (targetScale - 1),
+        -position.dy * (targetScale - 1),
+      )
+      ..scale(targetScale);
+  }
+
+  void _resetZoom() {
+    _zoomController.value = Matrix4.identity();
   }
 
   Widget _statusChip(String value) {

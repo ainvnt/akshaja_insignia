@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
@@ -48,16 +47,10 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
       return;
     }
 
-    var deletedCount = 0;
-    for (final photo in _photos) {
-      final deleted = await widget.repository.deleteLocalCopy(
-        photo,
-        onlyUploaded: false,
-      );
-      if (deleted) {
-        deletedCount++;
-      }
-    }
+    final deletedCount = await widget.repository.deleteLocalCopiesForDateFolder(
+      widget.dateKey,
+      _photos,
+    );
 
     if (!mounted) {
       return;
