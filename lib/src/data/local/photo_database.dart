@@ -79,9 +79,7 @@ class PhotoDatabase {
     final db = await _db;
     await db.update(
       _tableName,
-      <String, Object?>{
-        'file_path': filePath,
-      },
+      <String, Object?>{'file_path': filePath},
       where: 'id = ?',
       whereArgs: <Object?>[photoId],
     );
@@ -89,10 +87,7 @@ class PhotoDatabase {
 
   Future<List<PhotoRecord>> fetchAll() async {
     final db = await _db;
-    final rows = await db.query(
-      _tableName,
-      orderBy: 'captured_at DESC',
-    );
+    final rows = await db.query(_tableName, orderBy: 'captured_at DESC');
     return rows.map(PhotoRecord.fromMap).toList();
   }
 
@@ -105,6 +100,11 @@ class PhotoDatabase {
       orderBy: 'captured_at ASC',
     );
     return rows.map(PhotoRecord.fromMap).toList();
+  }
+
+  Future<void> clearAll() async {
+    final db = await _db;
+    await db.delete(_tableName);
   }
 
   Future<void> close() async {

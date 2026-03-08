@@ -136,6 +136,7 @@ class PhotoRepository {
   Future<int> syncFromCloudToLocalDateFolders() async {
     final objectKeys = await _apiClient.listRemoteObjectKeys();
     if (objectKeys.isEmpty) {
+      await clearAllLocalData();
       return 0;
     }
 
@@ -192,6 +193,25 @@ class PhotoRepository {
     }
 
     return importedCount;
+  }
+
+  Future<void> clearAllLocalData() async {
+    final existingRecords = await _database.fetchAll();
+    for (final record in existingRecords) {
+      final file = File(record.filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+
+    final docsDir = await getApplicationDocumentsDirectory();
+    final photosRoot = Directory(p.join(docsDir.path, 'photos'));
+    if (await photosRoot.exists()) {
+      await photosRoot.delete(recursive: true);
+    }
+
+    await _database.clearAll();
+    _notifyChanges();
   }
 
   Future<void> syncPending() async {
