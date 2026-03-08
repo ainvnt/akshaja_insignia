@@ -128,6 +128,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _refreshHomeScreen() async {
+    try {
+      await widget.repository.syncPending();
+      await widget.repository.syncFromCloudToLocalDateFolders();
+      await _loadPhotos();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Reload failed: $error')));
+    }
+  }
+
   Future<void> _openCamera() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -258,28 +273,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_errorText != null) {
-      return Center(
-        child: Padding(
+      return RefreshIndicator(
+        onRefresh: _refreshHomeScreen,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 34),
-              const SizedBox(height: 10),
-              Text(_errorText!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  setState(() {
-                    _loading = true;
-                    _errorText = null;
-                  });
-                  unawaited(_initializeScreen());
-                },
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+          children: [
+            const Icon(Icons.error_outline, size: 34),
+            const SizedBox(height: 10),
+            Text(_errorText!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  _loading = true;
+                  _errorText = null;
+                });
+                unawaited(_initializeScreen());
+              },
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }
@@ -287,13 +301,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final folders = _buildDateFolders();
 
     if (folders.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        children: const [
-          HomeSummaryCard(totalPhotos: 0, uploadedPhotos: 0),
-          SizedBox(height: 20),
-          Center(child: Text('No date folders found.')),
-        ],
+      return RefreshIndicator(
+        onRefresh: _refreshHomeScreen,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          children: const [
+            HomeSummaryCard(totalPhotos: 0, uploadedPhotos: 0),
+            SizedBox(height: 20),
+            Center(child: Text('No date folders found.')),
+          ],
+        ),
       );
     }
 
@@ -301,26 +319,31 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((photo) => photo.uploadStatus == UploadStatus.uploaded)
         .length;
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: folders.length + 1,
-      separatorBuilder: (_, index) =>
-          index == 0 ? const SizedBox(height: 14) : const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return HomeSummaryCard(
-            totalPhotos: _photos.length,
-            uploadedPhotos: uploadedCount,
-          );
-        }
+    return RefreshIndicator(
+      onRefresh: _refreshHomeScreen,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        itemCount: folders.length + 1,
+        separatorBuilder: (_, index) => index == 0
+            ? const SizedBox(height: 14)
+            : const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return HomeSummaryCard(
+              totalPhotos: _photos.length,
+              uploadedPhotos: uploadedCount,
+            );
+          }
 
-        final folder = folders[index - 1];
-        return DateFolderTile(
-          folder: folder,
-          onDeleteLocal: () => _deleteFolderLocalCopies(folder),
-          onOpen: () => _openDateFolder(folder),
-        );
-      },
+          final folder = folders[index - 1];
+          return DateFolderTile(
+            folder: folder,
+            onDeleteLocal: () => _deleteFolderLocalCopies(folder),
+            onOpen: () => _openDateFolder(folder),
+          );
+        },
+      ),
     );
   }
 

@@ -2,14 +2,11 @@ class AppConfig {
   const AppConfig._();
 
   // S3 target provided by user: s3://akshaja-insignia/daily-maintenance-evidence/
-  static const String s3Bucket = 'akshaja-insignia';
-  static const String s3Prefix = 'daily-maintenance-evidence';
+  static const String s3Bucket = String.fromEnvironment('S3_BUCKET');
+  static const String s3Prefix = String.fromEnvironment('S3_PREFIX');
 
   // Region used in default S3 public URL format.
-  static const String awsRegion = String.fromEnvironment(
-    'AWS_REGION',
-    defaultValue: 'ap-south-1',
-  );
+  static const String awsRegion = String.fromEnvironment('AWS_REGION');
 
   // Optional: set if using CloudFront or custom public S3 URL.
   static const String s3PublicBaseUrl = String.fromEnvironment(
