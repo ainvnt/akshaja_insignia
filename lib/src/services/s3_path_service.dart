@@ -8,13 +8,40 @@ class S3PathService {
   static String objectKeyForRecord(PhotoRecord record) {
     final localTime = record.capturedAt.toLocal();
     final year = DateFormat('yyyy').format(localTime);
+    final month = DateFormat('MM').format(localTime);
+    final day = DateFormat('dd').format(localTime);
+    final prefix = AppConfig.s3Prefix.replaceAll(RegExp(r'^/+|/+$'), '');
+    return '$prefix/$year/$month/$day/${record.id}.avif';
+  }
+
+  static String _legacyObjectKeyMonthDay(PhotoRecord record) {
+    final localTime = record.capturedAt.toLocal();
+    final year = DateFormat('yyyy').format(localTime);
     final monthDay = DateFormat('MMM-dd', 'en_US').format(localTime);
     final prefix = AppConfig.s3Prefix.replaceAll(RegExp(r'^/+|/+$'), '');
     return '$prefix/$year/$monthDay/${record.id}.avif';
   }
 
+  static String _legacyObjectKeyJpg(PhotoRecord record) {
+    final localTime = record.capturedAt.toLocal();
+    final year = DateFormat('yyyy').format(localTime);
+    final month = DateFormat('MM').format(localTime);
+    final day = DateFormat('dd').format(localTime);
+    final prefix = AppConfig.s3Prefix.replaceAll(RegExp(r'^/+|/+$'), '');
+    return '$prefix/$year/$month/$day/${record.id}.jpg';
+  }
+
   static String publicUrlForRecord(PhotoRecord record) {
     return publicUrlForKey(objectKeyForRecord(record));
+  }
+
+  static List<String> publicUrlsForRecord(PhotoRecord record) {
+    final keys = <String>[
+      objectKeyForRecord(record),
+      _legacyObjectKeyMonthDay(record),
+      _legacyObjectKeyJpg(record),
+    ];
+    return keys.map(publicUrlForKey).toSet().toList();
   }
 
   static String publicUrlForKey(String objectKey) {

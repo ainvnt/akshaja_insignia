@@ -5,6 +5,7 @@ import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:akshaja_insignia/src/services/s3_path_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_avif/flutter_avif.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class SavedPhotoPreviewScreen extends StatefulWidget {
@@ -23,12 +24,35 @@ class SavedPhotoPreviewScreen extends StatefulWidget {
 
 class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
   late PhotoRecord _photo;
+  Future<String?>? _cloudUrlFuture;
   bool _restoring = false;
 
   @override
   void initState() {
     super.initState();
     _photo = widget.photo;
+    _cloudUrlFuture = _resolveAccessibleCloudUrl();
+  }
+
+  Future<String?> _resolveAccessibleCloudUrl() async {
+    final urls = S3PathService.publicUrlsForRecord(_photo);
+    for (final url in urls) {
+      try {
+        final response = await http.get(
+          Uri.parse(url),
+          headers: const <String, String>{
+            'Range': 'bytes=0-1023',
+          },
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 206) {
+          return url;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
   }
 
   Future<void> _storeLocally() async {
@@ -51,6 +75,7 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
 
       setState(() {
         _photo = restored;
+        _cloudUrlFuture = _resolveAccessibleCloudUrl();
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -74,7 +99,6 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
     final isLocalAvif = _photo.filePath.toLowerCase().endsWith('.avif');
     final canStoreLocally =
         !hasLocalFile && _photo.uploadStatus == UploadStatus.uploaded;
-    final cloudUrl = S3PathService.publicUrlForRecord(_photo);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Photo Preview')),
@@ -93,13 +117,35 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                         width: double.infinity,
                         fit: BoxFit.contain,
                       ))
-                : AvifImage.network(
-                    cloudUrl,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Text('Image not available.'),
-                    ),
+                : FutureBuilder<String?>(
+                    future: _cloudUrlFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final resolvedUrl = snapshot.data;
+                      if (resolvedUrl == null || resolvedUrl.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Cloud image not accessible. '
+                            'Please verify S3 read access.',
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+
+                      return AvifImage.network(
+                        resolvedUrl,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Text('Image not available.'),
+                        ),
+                      );
+                    },
                   ),
           ),
           Padding(

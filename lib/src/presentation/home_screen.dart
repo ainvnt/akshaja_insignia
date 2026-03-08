@@ -5,7 +5,6 @@ import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
 import 'package:akshaja_insignia/src/presentation/saved_photo_preview_screen.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
-import 'package:akshaja_insignia/src/services/s3_path_service.dart';
 import 'package:flutter_avif/flutter_avif.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -252,13 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (photo.uploadStatus == UploadStatus.uploaded) {
-      return AvifImage.network(
-        S3PathService.publicUrlForRecord(photo),
-        width: 56,
-        height: 56,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _cloudOnlyPlaceholder(),
-      );
+      return _cloudOnlyPlaceholder();
     }
 
     return _brokenImagePlaceholder();
@@ -436,11 +429,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       tooltip: 'Preview',
                     ),
                     _compactActionIcon(
-                      onTap: hasLocalFile ? () => _deleteLocalCopy(photo) : null,
+                      onTap: (hasLocalFile &&
+                              photo.uploadStatus == UploadStatus.uploaded)
+                          ? () => _deleteLocalCopy(photo)
+                          : null,
                       icon: Icons.delete_outline,
-                      tooltip: hasLocalFile
-                          ? 'Delete local copy'
-                          : 'Local copy deleted',
+                      tooltip: !hasLocalFile
+                          ? 'Local copy deleted'
+                          : (photo.uploadStatus == UploadStatus.uploaded
+                              ? 'Delete local copy'
+                              : 'Upload first to enable delete'),
                     ),
                   ],
                 ),
