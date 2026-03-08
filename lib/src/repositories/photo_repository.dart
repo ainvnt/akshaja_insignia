@@ -82,6 +82,21 @@ class PhotoRepository {
     return _database.fetchAll();
   }
 
+  Future<int> getCloudPhotoCount() async {
+    final objectKeys = await _apiClient.listRemoteObjectKeys();
+    if (objectKeys.isEmpty) {
+      return 0;
+    }
+
+    var validCount = 0;
+    for (final objectKey in objectKeys) {
+      if (_parseS3ObjectKey(objectKey) != null) {
+        validCount++;
+      }
+    }
+    return validCount;
+  }
+
   Future<bool> uploadPhoto(PhotoRecord record, {bool force = false}) {
     return _tryUpload(record, force: force);
   }

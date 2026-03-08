@@ -5,14 +5,18 @@ class HomeSummaryCard extends StatelessWidget {
     super.key,
     required this.totalPhotos,
     required this.uploadedPhotos,
+    this.pendingPhotos,
+    this.uploadedLabel = 'Uploaded',
   });
 
   final int totalPhotos;
   final int uploadedPhotos;
+  final int? pendingPhotos;
+  final String uploadedLabel;
 
   @override
   Widget build(BuildContext context) {
-    final pending = totalPhotos - uploadedPhotos;
+    final pending = pendingPhotos ?? (totalPhotos - uploadedPhotos);
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -51,7 +55,7 @@ class HomeSummaryCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _SummaryItem(
-                    label: 'Uploaded',
+                    label: uploadedLabel,
                     value: '$uploadedPhotos',
                     icon: Icons.cloud_done_rounded,
                   ),

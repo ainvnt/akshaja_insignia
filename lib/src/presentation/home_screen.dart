@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
+  int? _cloudTotalPhotos;
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initializeScreen() async {
     try {
       await widget.repository.syncPending();
-      await _loadPhotos();
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     } catch (error) {
       if (!mounted) {
         return;
@@ -77,6 +78,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _loadCloudCount() async {
+    final cloudCount = await widget.repository.getCloudPhotoCount();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _cloudTotalPhotos = cloudCount;
+    });
+  }
+
   String _dateFolderKey(String filePath) {
     final normalized = filePath.replaceAll('\\', '/');
     final marker = '/photos/';
@@ -108,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.repository.syncPending();
       final imported = await widget.repository
           .syncFromCloudToLocalDateFolders();
-      await _loadPhotos();
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
       if (!mounted) {
         return;
       }
@@ -132,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await widget.repository.syncPending();
       await widget.repository.syncFromCloudToLocalDateFolders();
-      await _loadPhotos();
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     } catch (error) {
       if (!mounted) {
         return;
@@ -168,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
         endDate: selectedRange.end,
         clearOnEmpty: false,
       );
-      await _loadPhotos();
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
 
       if (!mounted) {
         return;
@@ -200,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (saved == true) {
-      await _loadPhotos();
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     }
   }
 
@@ -262,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    await _loadPhotos();
+    await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     if (!mounted) {
       return;
     }
@@ -303,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
       folder.photos,
       deleteLocalFiles: true,
     );
-    await _loadPhotos();
+    await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
 
     if (!mounted) {
       return;
@@ -402,15 +413,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final folders = _buildDateFolders();
 
     if (folders.isEmpty) {
+      final pendingCount = _photos
+          .where((photo) => photo.uploadStatus == UploadStatus.pending)
+          .length;
+      final uploadedForSummary = _cloudTotalPhotos ?? 0;
+      final totalForSummary = uploadedForSummary + pendingCount;
+      final uploadedLabel = _cloudTotalPhotos != null
+          ? 'Cloud Total'
+          : 'Uploaded';
       return RefreshIndicator(
         onRefresh: _refreshHomeScreen,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          children: const [
-            HomeSummaryCard(totalPhotos: 0, uploadedPhotos: 0),
+          children: [
+            HomeSummaryCard(
+              totalPhotos: totalForSummary,
+              uploadedPhotos: uploadedForSummary,
+              pendingPhotos: pendingCount,
+              uploadedLabel: uploadedLabel,
+            ),
             SizedBox(height: 20),
-            Center(child: Text('No date folders found.')),
+            const Center(child: Text('No date folders found.')),
           ],
         ),
       );
@@ -419,6 +443,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final uploadedCount = _photos
         .where((photo) => photo.uploadStatus == UploadStatus.uploaded)
         .length;
+    final pendingCount = _photos
+        .where((photo) => photo.uploadStatus == UploadStatus.pending)
+        .length;
+    final uploadedForSummary = (_cloudTotalPhotos != null)
+        ? (_cloudTotalPhotos! > uploadedCount
+              ? _cloudTotalPhotos!
+              : uploadedCount)
+        : uploadedCount;
+    final totalForSummary = uploadedForSummary + pendingCount;
+    final uploadedLabel = _cloudTotalPhotos != null
+        ? 'Cloud Total'
+        : 'Uploaded';
 
     return RefreshIndicator(
       onRefresh: _refreshHomeScreen,
@@ -432,8 +468,10 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           if (index == 0) {
             return HomeSummaryCard(
-              totalPhotos: _photos.length,
-              uploadedPhotos: uploadedCount,
+              totalPhotos: totalForSummary,
+              uploadedPhotos: uploadedForSummary,
+              pendingPhotos: pendingCount,
+              uploadedLabel: uploadedLabel,
             );
           }
 
