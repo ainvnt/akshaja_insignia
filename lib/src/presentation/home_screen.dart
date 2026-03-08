@@ -143,6 +143,55 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _syncByDateRange() async {
+    final now = DateTime.now();
+    final selectedRange = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: DateTimeRange(
+        start: now.subtract(const Duration(days: 7)),
+        end: now,
+      ),
+      helpText: 'Select Cloud Sync Range',
+      saveText: 'Sync',
+    );
+
+    if (selectedRange == null) {
+      return;
+    }
+
+    try {
+      await widget.repository.clearAllLocalData();
+      final imported = await widget.repository.syncFromCloudToLocalDateFolders(
+        startDate: selectedRange.start,
+        endDate: selectedRange.end,
+        clearOnEmpty: false,
+      );
+      await _loadPhotos();
+
+      if (!mounted) {
+        return;
+      }
+
+      final startLabel = DateFormat('yyyy-MM-dd').format(selectedRange.start);
+      final endLabel = DateFormat('yyyy-MM-dd').format(selectedRange.end);
+      final message = imported > 0
+          ? 'Loaded $imported item(s) for $startLabel to $endLabel.'
+          : 'No cloud data found for $startLabel to $endLabel.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Date-range sync failed: $error')));
+    }
+  }
+
   Future<void> _openCamera() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -284,6 +333,11 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Akshaja Insignia'),
         centerTitle: true,
         actions: [
+          IconButton(
+            onPressed: _syncByDateRange,
+            icon: const Icon(Icons.date_range_rounded),
+            tooltip: 'Sync cloud by date range',
+          ),
           IconButton(
             onPressed: _syncPendingPhotos,
             icon: const Icon(Icons.sync),

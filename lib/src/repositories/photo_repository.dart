@@ -133,10 +133,16 @@ class PhotoRepository {
     return _apiClient.downloadPhoto(record);
   }
 
-  Future<int> syncFromCloudToLocalDateFolders() async {
+  Future<int> syncFromCloudToLocalDateFolders({
+    DateTime? startDate,
+    DateTime? endDate,
+    bool clearOnEmpty = true,
+  }) async {
     final objectKeys = await _apiClient.listRemoteObjectKeys();
     if (objectKeys.isEmpty) {
-      await clearAllLocalData();
+      if (clearOnEmpty) {
+        await clearAllLocalData();
+      }
       return 0;
     }
 
@@ -148,6 +154,10 @@ class PhotoRepository {
     for (final objectKey in objectKeys) {
       final metadata = _parseS3ObjectKey(objectKey);
       if (metadata == null) {
+        continue;
+      }
+
+      if (!_isWithinSelectedDateRange(metadata, startDate, endDate)) {
         continue;
       }
 
@@ -193,6 +203,26 @@ class PhotoRepository {
     }
 
     return importedCount;
+  }
+
+  bool _isWithinSelectedDateRange(
+    _S3KeyMetadata metadata,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) {
+    if (startDate == null || endDate == null) {
+      return true;
+    }
+
+    final objectDate = DateTime.utc(
+      int.parse(metadata.year),
+      int.parse(metadata.month),
+      int.parse(metadata.day),
+    );
+    final start = DateTime.utc(startDate.year, startDate.month, startDate.day);
+    final end = DateTime.utc(endDate.year, endDate.month, endDate.day);
+
+    return !objectDate.isBefore(start) && !objectDate.isAfter(end);
   }
 
   Future<void> clearAllLocalData() async {
