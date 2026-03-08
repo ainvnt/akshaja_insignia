@@ -214,6 +214,30 @@ class PhotoRepository {
     _notifyChanges();
   }
 
+  Future<int> deletePhotos(
+    List<PhotoRecord> records, {
+    bool deleteLocalFiles = true,
+  }) async {
+    if (records.isEmpty) {
+      return 0;
+    }
+
+    var deletedLocalCount = 0;
+    if (deleteLocalFiles) {
+      for (final record in records) {
+        final file = File(record.filePath);
+        if (await file.exists()) {
+          await file.delete();
+          deletedLocalCount++;
+        }
+      }
+    }
+
+    await _database.deleteByIds(records.map((e) => e.id).toList());
+    _notifyChanges();
+    return deletedLocalCount;
+  }
+
   Future<void> syncPending() async {
     if (_syncInProgress) {
       return;

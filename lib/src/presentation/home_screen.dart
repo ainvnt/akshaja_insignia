@@ -222,6 +222,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _deleteFolderData(DateFolderGroup folder) async {
+    final shouldDelete =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Delete folder ${folder.key.replaceAll('/', '-')}?'),
+            content: Text(
+              'This will remove ${folder.photos.length} item(s) from local storage '
+              'and from the app list for this folder.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    final deletedLocalCount = await widget.repository.deletePhotos(
+      folder.photos,
+      deleteLocalFiles: true,
+    );
+    await _loadPhotos();
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Folder deleted. Removed ${folder.photos.length} record(s), '
+          '$deletedLocalCount local file(s).',
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     unawaited(_changesSubscription?.cancel());
@@ -340,6 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return DateFolderTile(
             folder: folder,
             onDeleteLocal: () => _deleteFolderLocalCopies(folder),
+            onDeleteFolder: () => _deleteFolderData(folder),
             onOpen: () => _openDateFolder(folder),
           );
         },

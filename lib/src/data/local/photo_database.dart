@@ -107,6 +107,20 @@ class PhotoDatabase {
     await db.delete(_tableName);
   }
 
+  Future<void> deleteByIds(List<String> photoIds) async {
+    if (photoIds.isEmpty) {
+      return;
+    }
+
+    final db = await _db;
+    final placeholders = List.filled(photoIds.length, '?').join(',');
+    await db.delete(
+      _tableName,
+      where: 'id IN ($placeholders)',
+      whereArgs: photoIds,
+    );
+  }
+
   Future<void> close() async {
     final db = _database;
     if (db != null && db.isOpen) {

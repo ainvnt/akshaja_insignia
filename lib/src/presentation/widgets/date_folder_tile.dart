@@ -7,11 +7,13 @@ class DateFolderTile extends StatelessWidget {
     required this.folder,
     required this.onOpen,
     required this.onDeleteLocal,
+    required this.onDeleteFolder,
   });
 
   final DateFolderGroup folder;
   final VoidCallback onOpen;
   final VoidCallback onDeleteLocal;
+  final VoidCallback onDeleteFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +40,27 @@ class DateFolderTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: 'Delete local files in folder',
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: onDeleteLocal,
+            PopupMenuButton<_FolderAction>(
+              tooltip: 'Folder actions',
+              onSelected: (value) {
+                switch (value) {
+                  case _FolderAction.deleteLocalCopies:
+                    onDeleteLocal();
+                  case _FolderAction.deleteFolderData:
+                    onDeleteFolder();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<_FolderAction>(
+                  value: _FolderAction.deleteLocalCopies,
+                  child: Text('Delete local copies'),
+                ),
+                PopupMenuItem<_FolderAction>(
+                  value: _FolderAction.deleteFolderData,
+                  child: Text('Delete folder data'),
+                ),
+              ],
+              icon: const Icon(Icons.more_vert_rounded),
             ),
             const Icon(Icons.chevron_right_rounded),
           ],
@@ -51,3 +70,5 @@ class DateFolderTile extends StatelessWidget {
     );
   }
 }
+
+enum _FolderAction { deleteLocalCopies, deleteFolderData }
