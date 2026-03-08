@@ -12,6 +12,11 @@ import 'package:http/http.dart' as http;
 class PhotoApiClient {
   const PhotoApiClient();
 
+  static final RegExp _keyTagRegex = RegExp(r'<Key>([^<]+)</Key>');
+  static final RegExp _nextTokenRegex = RegExp(
+    r'<NextContinuationToken>([^<]+)</NextContinuationToken>',
+  );
+
   Future<bool> uploadPhoto(PhotoRecord record) async {
     final sourceFile = File(record.filePath);
     if (!await sourceFile.exists()) {
@@ -73,8 +78,8 @@ class PhotoApiClient {
         return false;
       }
 
-      if (usedPresignedUrl) {
-        // Upload URL success is sufficient for private buckets.
+      if (usedPresignedUrl || AppConfig.hasAwsCredentials) {
+        // Successful authenticated PUT is enough to mark upload success.
         return true;
       }
 
@@ -182,6 +187,99 @@ class PhotoApiClient {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<List<String>> listRemoteObjectKeys() async {
+    if (!AppConfig.hasAwsCredentials) {
+      return const <String>[];
+    }
+
+    final allKeys = <String>[];
+    String? continuationToken;
+    final normalizedPrefix =
+        '${AppConfig.s3Prefix.replaceAll(RegExp(r'^/+|/+$'), '')}/';
+
+    while (true) {
+      final listUri = _buildListUri(
+        prefix: normalizedPrefix,
+        continuationToken: continuationToken,
+      );
+
+      final response = await http.get(
+        listUri,
+        headers: AwsSigV4Signer.signedGetHeaders(listUri),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return const <String>[];
+      }
+
+      final responseBody = response.body;
+      for (final match in _keyTagRegex.allMatches(responseBody)) {
+        final rawKey = match.group(1);
+        if (rawKey == null || rawKey.isEmpty) {
+          continue;
+        }
+
+        final key = _xmlUnescape(rawKey);
+        if (!key.startsWith(normalizedPrefix) || key.endsWith('/')) {
+          continue;
+        }
+        allKeys.add(key);
+      }
+
+      final nextTokenMatch = _nextTokenRegex.firstMatch(responseBody);
+      final nextToken = nextTokenMatch?.group(1);
+      if (nextToken == null || nextToken.isEmpty) {
+        break;
+      }
+      continuationToken = _xmlUnescape(nextToken);
+    }
+
+    return allKeys.toSet().toList()..sort();
+  }
+
+  Future<Uint8List?> downloadPhotoByObjectKey(String objectKey) async {
+    try {
+      final url = S3PathService.publicUrlForKey(objectKey);
+      final uri = Uri.parse(url);
+      final response = AppConfig.hasAwsCredentials
+          ? await http.get(uri, headers: AwsSigV4Signer.signedGetHeaders(uri))
+          : await http.get(uri);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return Uint8List.fromList(response.bodyBytes);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Uri _buildListUri({required String prefix, String? continuationToken}) {
+    final baseForListing = Uri.parse(
+      S3PathService.publicUrlForKey('placeholder'),
+    );
+    return Uri(
+      scheme: baseForListing.scheme,
+      host: baseForListing.host,
+      port: baseForListing.hasPort ? baseForListing.port : null,
+      path: '/',
+      queryParameters: <String, String>{
+        'list-type': '2',
+        'prefix': prefix,
+        if (continuationToken != null && continuationToken.isNotEmpty)
+          'continuation-token': continuationToken,
+      },
+    );
+  }
+
+  String _xmlUnescape(String value) {
+    return value
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'");
   }
 
   void close() {}

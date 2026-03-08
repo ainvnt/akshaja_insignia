@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
@@ -24,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
+  final Map<String, Future<Uint8List?>> _thumbnailFutures =
+      <String, Future<Uint8List?>>{};
 
   @override
   void initState() {
@@ -104,20 +107,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _syncPendingPhotos() async {
     try {
       await widget.repository.syncPending();
+      final imported = await widget.repository
+          .syncFromCloudToLocalDateFolders();
       await _loadPhotos();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sync complete')),
-      );
+      final message = imported > 0
+          ? 'Sync complete. Imported $imported cloud item(s). Thumbnails load on demand.'
+          : 'Sync complete.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sync failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sync failed: $error')));
     }
   }
 
@@ -132,9 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(uploaded
-            ? (isReupload ? 'Photo reuploaded' : 'Photo uploaded')
-            : 'Upload pending/offline'),
+        content: Text(
+          uploaded
+              ? (isReupload ? 'Photo reuploaded' : 'Photo uploaded')
+              : 'Upload pending/offline',
+        ),
       ),
     );
   }
@@ -164,7 +174,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final shouldDelete = await showDialog<bool>(
+    final shouldDelete =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Delete local copy?'),
@@ -198,9 +209,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(deleted
-            ? 'Local copy deleted'
-            : 'Could not delete local copy'),
+        content: Text(
+          deleted ? 'Local copy deleted' : 'Could not delete local copy',
+        ),
       ),
     );
   }
@@ -251,7 +262,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (photo.uploadStatus == UploadStatus.uploaded) {
-      return _cloudOnlyPlaceholder();
+      return FutureBuilder<Uint8List?>(
+        future: _thumbnailFutures.putIfAbsent(
+          photo.id,
+          () => widget.repository.fetchCloudThumbnailBytes(photo),
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return _cloudLoadingPlaceholder();
+          }
+
+          final bytes = snapshot.data;
+          if (bytes == null || bytes.isEmpty) {
+            return _cloudOnlyPlaceholder();
+          }
+
+          return AvifImage.memory(
+            bytes,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _cloudOnlyPlaceholder(),
+          );
+        },
+      );
     }
 
     return _brokenImagePlaceholder();
@@ -277,6 +311,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _cloudLoadingPlaceholder() {
+    return Container(
+      width: 56,
+      height: 56,
+      color: Colors.blueGrey.shade50,
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.blueGrey.shade400,
+        ),
+      ),
+    );
+  }
+
   Widget _compactActionIcon({
     required IconData icon,
     required String tooltip,
@@ -292,11 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SizedBox(
           width: 24,
           height: 24,
-          child: Icon(
-            icon,
-            size: 18,
-            color: disabled ? Colors.grey : color,
-          ),
+          child: Icon(icon, size: 18, color: disabled ? Colors.grey : color),
         ),
       ),
     );
@@ -310,9 +357,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Geo Camera'),
+        title: const Text('Akshaja Insignia'),
+        centerTitle: true,
         actions: [
           IconButton(
             onPressed: _syncPendingPhotos,
@@ -321,11 +371,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.surface,
+              colorScheme.primary.withValues(alpha: 0.08),
+              colorScheme.secondary.withValues(alpha: 0.1),
+            ],
+          ),
+        ),
+        child: _buildBody(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCamera,
         tooltip: 'Open camera',
-        child: const Icon(Icons.camera_alt),
+        icon: const Icon(Icons.camera_alt_rounded),
+        label: const Text('Capture'),
       ),
     );
   }
@@ -342,7 +406,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_errorText!),
+              const Icon(Icons.error_outline, size: 34),
+              const SizedBox(height: 10),
+              Text(_errorText!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () {
@@ -361,20 +427,43 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_photos.isEmpty) {
-      return const Center(child: Text('No photos captured yet.'));
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        children: const [
+          _HomeSummaryCard(totalPhotos: 0, uploadedPhotos: 0),
+          SizedBox(height: 20),
+          Center(child: Text('No photos captured yet.')),
+        ],
+      );
     }
 
+    final uploadedCount = _photos
+        .where((photo) => photo.uploadStatus == UploadStatus.uploaded)
+        .length;
+
     return ListView.separated(
-      itemCount: _photos.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      itemCount: _photos.length + 1,
+      separatorBuilder: (_, index) =>
+          index == 0 ? const SizedBox(height: 14) : const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final photo = _photos[index];
-        final capturedText =
-            DateFormat('dd-MM-yyyy HH:mm:ss').format(photo.capturedAt.toLocal());
+        if (index == 0) {
+          return _HomeSummaryCard(
+            totalPhotos: _photos.length,
+            uploadedPhotos: uploadedCount,
+          );
+        }
+
+        final photoIndex = index - 1;
+        final photo = _photos[photoIndex];
+        final capturedText = DateFormat(
+          'dd MMM yyyy, hh:mm:ss a',
+        ).format(photo.capturedAt.toLocal());
         final folderLabel = _directoryLabel(photo);
-        final previousFolder =
-            index == 0 ? null : _directoryLabel(_photos[index - 1]);
-        final showHeader = index == 0 || previousFolder != folderLabel;
+        final previousFolder = photoIndex == 0
+            ? null
+            : _directoryLabel(_photos[photoIndex - 1]);
+        final showHeader = photoIndex == 0 || previousFolder != folderLabel;
         final hasLocalFile = File(photo.filePath).existsSync();
 
         return Column(
@@ -382,72 +471,242 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             if (showHeader)
               Container(
-                width: double.infinity,
-                color: Colors.blueGrey.withValues(alpha: 0.08),
+                margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'Directory: $folderLabel',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  folderLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-            ListTile(
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: _buildThumbnail(photo),
-              ),
-              title: Text(capturedText),
-              subtitle: Text(
-                'Folder: $folderLabel\n'
-                'Lat ${photo.latitude.toStringAsFixed(6)} | '
-                'Lng ${photo.longitude.toStringAsFixed(6)}',
-              ),
-              isThreeLine: true,
-              trailing: SizedBox(
-                width: 90,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _compactActionIcon(
-                      onTap: () => _uploadSinglePhoto(photo),
-                      icon: photo.uploadStatus == UploadStatus.uploaded
-                          ? Icons.cloud_done
-                          : Icons.cloud_upload,
-                      color: photo.uploadStatus == UploadStatus.uploaded
-                          ? Colors.green
-                          : Colors.orange,
-                      tooltip: photo.uploadStatus == UploadStatus.uploaded
-                          ? 'Reupload'
-                          : 'Upload',
-                    ),
-                    _compactActionIcon(
-                      onTap: () => _openSavedPhotoPreview(photo),
-                      icon: Icons.visibility,
-                      tooltip: 'Preview',
-                    ),
-                    _compactActionIcon(
-                      onTap: (hasLocalFile &&
-                              photo.uploadStatus == UploadStatus.uploaded)
-                          ? () => _deleteLocalCopy(photo)
-                          : null,
-                      icon: Icons.delete_outline,
-                      tooltip: !hasLocalFile
-                          ? 'Local copy deleted'
-                          : (photo.uploadStatus == UploadStatus.uploaded
-                              ? 'Delete local copy'
-                              : 'Upload first to enable delete'),
-                    ),
-                  ],
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withValues(alpha: 0.45),
                 ),
               ),
-              onTap: () => _openSavedPhotoPreview(photo),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _openSavedPhotoPreview(photo),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: _buildThumbnail(photo),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              capturedText,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Lat ${photo.latitude.toStringAsFixed(6)}  |  '
+                              'Lng ${photo.longitude.toStringAsFixed(6)}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            const SizedBox(height: 7),
+                            _statusPill(photo.uploadStatus),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 88,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _compactActionIcon(
+                              onTap: () => _uploadSinglePhoto(photo),
+                              icon: photo.uploadStatus == UploadStatus.uploaded
+                                  ? Icons.cloud_done
+                                  : Icons.cloud_upload,
+                              color: photo.uploadStatus == UploadStatus.uploaded
+                                  ? Colors.green
+                                  : Colors.orange,
+                              tooltip:
+                                  photo.uploadStatus == UploadStatus.uploaded
+                                  ? 'Reupload'
+                                  : 'Upload',
+                            ),
+                            _compactActionIcon(
+                              onTap: () => _openSavedPhotoPreview(photo),
+                              icon: Icons.visibility,
+                              tooltip: 'Preview',
+                            ),
+                            _compactActionIcon(
+                              onTap:
+                                  (hasLocalFile &&
+                                      photo.uploadStatus ==
+                                          UploadStatus.uploaded)
+                                  ? () => _deleteLocalCopy(photo)
+                                  : null,
+                              icon: Icons.delete_outline,
+                              tooltip: !hasLocalFile
+                                  ? 'Local copy deleted'
+                                  : (photo.uploadStatus == UploadStatus.uploaded
+                                        ? 'Delete local copy'
+                                        : 'Upload first to enable delete'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _statusPill(UploadStatus status) {
+    final uploaded = status == UploadStatus.uploaded;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: uploaded
+            ? Colors.green.withValues(alpha: 0.16)
+            : Colors.orange.withValues(alpha: 0.16),
+      ),
+      child: Text(
+        status.value.toUpperCase(),
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          color: uploaded ? Colors.green.shade800 : Colors.orange.shade900,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeSummaryCard extends StatelessWidget {
+  const _HomeSummaryCard({
+    required this.totalPhotos,
+    required this.uploadedPhotos,
+  });
+
+  final int totalPhotos;
+  final int uploadedPhotos;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = totalPhotos - uploadedPhotos;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.16),
+            ],
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Capture Overview',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _SummaryItem(
+                    label: 'Total',
+                    value: '$totalPhotos',
+                    icon: Icons.photo_library_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SummaryItem(
+                    label: 'Uploaded',
+                    value: '$uploadedPhotos',
+                    icon: Icons.cloud_done_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SummaryItem(
+                    label: 'Pending',
+                    value: '$pending',
+                    icon: Icons.schedule_rounded,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+      ),
     );
   }
 }
