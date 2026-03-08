@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
+import 'package:akshaja_insignia/src/presentation/date_folder_gallery_screen.dart';
 import 'package:akshaja_insignia/src/presentation/saved_photo_preview_screen.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:flutter_avif/flutter_avif.dart';
@@ -239,6 +240,73 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openDateFolder(_DateFolderGroup folder) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DateFolderGalleryScreen(
+          dateKey: folder.key,
+          photos: folder.photos,
+          repository: widget.repository,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteFolderLocalCopies(_DateFolderGroup folder) async {
+    final shouldDelete =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(
+              'Delete local files in ${folder.key.replaceAll('/', '-')}?',
+            ),
+            content: Text(
+              'This will delete local copies for ${folder.photos.length} image(s). '
+              'Cloud copies will remain available.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    var deletedCount = 0;
+    for (final photo in folder.photos) {
+      final hasLocal = File(photo.filePath).existsSync();
+      if (!hasLocal) {
+        continue;
+      }
+
+      final deleted = await widget.repository.deleteLocalCopy(
+        photo,
+        onlyUploaded: false,
+      );
+      if (deleted) {
+        deletedCount++;
+      }
+    }
+
+    await _loadPhotos();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted $deletedCount local file(s).')),
+    );
+  }
+
   Widget _buildThumbnail(PhotoRecord photo) {
     final localFile = File(photo.filePath);
     if (localFile.existsSync()) {
@@ -426,13 +494,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (_photos.isEmpty) {
+    final folders = _buildDateFolders();
+
+    if (folders.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         children: const [
           _HomeSummaryCard(totalPhotos: 0, uploadedPhotos: 0),
           SizedBox(height: 20),
-          Center(child: Text('No photos captured yet.')),
+          Center(child: Text('No date folders found.')),
         ],
       );
     }
@@ -443,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: _photos.length + 1,
+      itemCount: folders.length + 1,
       separatorBuilder: (_, index) =>
           index == 0 ? const SizedBox(height: 14) : const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -454,130 +524,64 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        final photoIndex = index - 1;
-        final photo = _photos[photoIndex];
-        final capturedText = DateFormat(
-          'dd MMM yyyy, hh:mm:ss a',
-        ).format(photo.capturedAt.toLocal());
-        final folderLabel = _directoryLabel(photo);
-        final previousFolder = photoIndex == 0
-            ? null
-            : _directoryLabel(_photos[photoIndex - 1]);
-        final showHeader = photoIndex == 0 || previousFolder != folderLabel;
-        final hasLocalFile = File(photo.filePath).existsSync();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  folderLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-                side: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withValues(alpha: 0.45),
-                ),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => _openSavedPhotoPreview(photo),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: _buildThumbnail(photo),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              capturedText,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Lat ${photo.latitude.toStringAsFixed(6)}  |  '
-                              'Lng ${photo.longitude.toStringAsFixed(6)}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            const SizedBox(height: 7),
-                            _statusPill(photo.uploadStatus),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 88,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _compactActionIcon(
-                              onTap: () => _uploadSinglePhoto(photo),
-                              icon: photo.uploadStatus == UploadStatus.uploaded
-                                  ? Icons.cloud_done
-                                  : Icons.cloud_upload,
-                              color: photo.uploadStatus == UploadStatus.uploaded
-                                  ? Colors.green
-                                  : Colors.orange,
-                              tooltip:
-                                  photo.uploadStatus == UploadStatus.uploaded
-                                  ? 'Reupload'
-                                  : 'Upload',
-                            ),
-                            _compactActionIcon(
-                              onTap: () => _openSavedPhotoPreview(photo),
-                              icon: Icons.visibility,
-                              tooltip: 'Preview',
-                            ),
-                            _compactActionIcon(
-                              onTap:
-                                  (hasLocalFile &&
-                                      photo.uploadStatus ==
-                                          UploadStatus.uploaded)
-                                  ? () => _deleteLocalCopy(photo)
-                                  : null,
-                              icon: Icons.delete_outline,
-                              tooltip: !hasLocalFile
-                                  ? 'Local copy deleted'
-                                  : (photo.uploadStatus == UploadStatus.uploaded
-                                        ? 'Delete local copy'
-                                        : 'Upload first to enable delete'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+        final folder = folders[index - 1];
+        final folderLabel = folder.key.replaceAll('/', '-');
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.45),
             ),
-          ],
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            leading: const Icon(Icons.folder_rounded, color: Colors.amber),
+            title: Text(
+              folderLabel,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text('${folder.photos.length} image(s)'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Delete local files in folder',
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  onPressed: () => _deleteFolderLocalCopies(folder),
+                ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+            onTap: () => _openDateFolder(folder),
+          ),
         );
       },
     );
+  }
+
+  List<_DateFolderGroup> _buildDateFolders() {
+    final folderMap = <String, List<PhotoRecord>>{};
+    for (final photo in _photos) {
+      final key = _directoryLabel(photo);
+      folderMap.putIfAbsent(key, () => <PhotoRecord>[]).add(photo);
+    }
+
+    final keys = folderMap.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return keys
+        .map(
+          (key) => _DateFolderGroup(
+            key: key,
+            photos: folderMap[key] ?? const <PhotoRecord>[],
+          ),
+        )
+        .toList();
   }
 
   Widget _statusPill(UploadStatus status) {
@@ -709,4 +713,11 @@ class _SummaryItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DateFolderGroup {
+  const _DateFolderGroup({required this.key, required this.photos});
+
+  final String key;
+  final List<PhotoRecord> photos;
 }
