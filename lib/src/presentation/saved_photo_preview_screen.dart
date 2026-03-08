@@ -5,6 +5,7 @@ import 'package:akshaja_insignia/src/config/app_config.dart';
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_avif/flutter_avif.dart';
 import 'package:intl/intl.dart';
 
@@ -135,6 +136,8 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
+                      _imageIdTile(_photo.id),
+                      const SizedBox(height: 10),
                       _metaTile(Icons.event, 'Captured', captured),
                       const SizedBox(height: 10),
                       _metaTile(
@@ -319,6 +322,27 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _imageIdTile(String imageId) {
+    return Row(
+      children: [
+        Expanded(child: _metaTile(Icons.fingerprint, 'Image ID', imageId)),
+        IconButton(
+          tooltip: 'Copy image ID',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: imageId));
+            if (!mounted) {
+              return;
+            }
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Image ID copied')));
+          },
+          icon: const Icon(Icons.copy_rounded),
         ),
       ],
     );
