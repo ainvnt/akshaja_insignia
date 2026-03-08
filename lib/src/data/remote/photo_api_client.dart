@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:akshaja_insignia/src/config/app_config.dart';
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
+import 'package:akshaja_insignia/src/services/aws_sig_v4_signer.dart';
 import 'package:akshaja_insignia/src/services/s3_path_service.dart';
 import 'package:flutter_avif/flutter_avif.dart';
 import 'package:http/http.dart' as http;
@@ -24,19 +27,55 @@ class PhotoApiClient {
         minQuantizer: 22,
       );
 
-      final uploadUri = Uri.parse(
-        S3PathService.publicUrlForRecord(record),
-      );
+      final uploadUri = Uri.parse(S3PathService.publicUrlForRecord(record));
+      final objectKey = S3PathService.objectKeyForRecord(record);
 
-      // Try public-read ACL first. If bucket has ACLs disabled, retry without it.
-      var response = await _putAvif(uploadUri, avifBytes, includePublicAcl: true);
-      if ((response.statusCode == 400 || response.statusCode == 403) &&
-          response.body.toLowerCase().contains('accesscontrollistnotsupported')) {
-        response = await _putAvif(uploadUri, avifBytes, includePublicAcl: false);
+      late final http.Response response;
+      var usedPresignedUrl = false;
+      if (AppConfig.hasPresignApi) {
+        final presigned = await _requestPresignedUpload(
+          objectKey: objectKey,
+          contentType: 'image/avif',
+        );
+        if (presigned == null) {
+          return false;
+        }
+        usedPresignedUrl = true;
+        response = await http.put(
+          presigned.uploadUri,
+          headers: presigned.headers,
+          body: avifBytes,
+        );
+      } else if (AppConfig.hasAwsCredentials) {
+        response = await _putAvifSigned(uploadUri, avifBytes);
+      } else {
+        // Try public-read ACL first. If bucket has ACLs disabled, retry without it.
+        var publicResponse = await _putAvif(
+          uploadUri,
+          avifBytes,
+          includePublicAcl: true,
+        );
+        if ((publicResponse.statusCode == 400 ||
+                publicResponse.statusCode == 403) &&
+            publicResponse.body.toLowerCase().contains(
+              'accesscontrollistnotsupported',
+            )) {
+          publicResponse = await _putAvif(
+            uploadUri,
+            avifBytes,
+            includePublicAcl: false,
+          );
+        }
+        response = publicResponse;
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return false;
+      }
+
+      if (usedPresignedUrl) {
+        // Upload URL success is sufficient for private buckets.
+        return true;
       }
 
       return _isPubliclyReadable(uploadUri);
@@ -54,16 +93,73 @@ class PhotoApiClient {
       'Content-Type': 'image/avif',
       if (includePublicAcl) 'x-amz-acl': 'public-read',
     };
-    return http.put(
-      uploadUri,
-      headers: headers,
-      body: avifBytes,
-    );
+    return http.put(uploadUri, headers: headers, body: avifBytes);
+  }
+
+  Future<http.Response> _putAvifSigned(Uri uploadUri, Uint8List avifBytes) {
+    final headers = AwsSigV4Signer.signedPutHeaders(uploadUri, avifBytes);
+    return http.put(uploadUri, headers: headers, body: avifBytes);
+  }
+
+  Future<_PresignedUpload?> _requestPresignedUpload({
+    required String objectKey,
+    required String contentType,
+  }) async {
+    try {
+      final endpoint = Uri.parse(AppConfig.s3PresignApiUrl.trim());
+      final requestHeaders = <String, String>{
+        'Content-Type': 'application/json',
+        if (AppConfig.s3PresignApiToken.trim().isNotEmpty)
+          'Authorization': 'Bearer ${AppConfig.s3PresignApiToken.trim()}',
+      };
+
+      final response = await http.post(
+        endpoint,
+        headers: requestHeaders,
+        body: jsonEncode(<String, String>{
+          'bucket': AppConfig.s3Bucket,
+          'objectKey': objectKey,
+          'contentType': contentType,
+          'method': 'PUT',
+        }),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final uploadUrl = (decoded['uploadUrl'] ?? decoded['url'])?.toString();
+      if (uploadUrl == null || uploadUrl.isEmpty) {
+        return null;
+      }
+
+      final dynamic headersRaw = decoded['headers'];
+      final uploadHeaders = <String, String>{'Content-Type': contentType};
+      if (headersRaw is Map) {
+        for (final entry in headersRaw.entries) {
+          uploadHeaders[entry.key.toString()] = entry.value.toString();
+        }
+      }
+
+      return _PresignedUpload(
+        uploadUri: Uri.parse(uploadUrl),
+        headers: uploadHeaders,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> _isPubliclyReadable(Uri uri) async {
     try {
-      final response = await http.get(uri);
+      final response = AppConfig.hasAwsCredentials
+          ? await http.get(uri, headers: AwsSigV4Signer.signedGetHeaders(uri))
+          : await http.get(uri);
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (_) {
       return false;
@@ -74,7 +170,10 @@ class PhotoApiClient {
     try {
       final candidateUrls = S3PathService.publicUrlsForRecord(record);
       for (final url in candidateUrls) {
-        final response = await http.get(Uri.parse(url));
+        final uri = Uri.parse(url);
+        final response = AppConfig.hasAwsCredentials
+            ? await http.get(uri, headers: AwsSigV4Signer.signedGetHeaders(uri))
+            : await http.get(uri);
         if (response.statusCode >= 200 && response.statusCode < 300) {
           return Uint8List.fromList(response.bodyBytes);
         }
@@ -86,4 +185,11 @@ class PhotoApiClient {
   }
 
   void close() {}
+}
+
+class _PresignedUpload {
+  const _PresignedUpload({required this.uploadUri, required this.headers});
+
+  final Uri uploadUri;
+  final Map<String, String> headers;
 }
