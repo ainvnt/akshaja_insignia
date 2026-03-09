@@ -358,6 +358,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _deleteAllFoldersData() async {
+    if (_photos.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No folders to delete.')));
+      return;
+    }
+
+    final folderCount = _buildDateFolders().length;
+    final shouldDelete =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete all folders?'),
+            content: Text(
+              'This will remove all $folderCount folder(s) and ${_photos.length} record(s) '
+              'from the app list and local storage.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete All'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    final recordsToDelete = List<PhotoRecord>.from(_photos);
+    final deletedLocalCount = await widget.repository.deletePhotos(
+      recordsToDelete,
+      deleteLocalFiles: true,
+    );
+    await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Deleted all folders. Removed ${recordsToDelete.length} record(s), '
+          '$deletedLocalCount local file(s).',
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     unawaited(_changesSubscription?.cancel());
@@ -373,6 +432,11 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Akshaja Insignia'),
         centerTitle: true,
         actions: [
+          IconButton(
+            onPressed: _deleteAllFoldersData,
+            icon: const Icon(Icons.delete_sweep_rounded),
+            tooltip: 'Delete all folders',
+          ),
           IconButton(
             onPressed: _syncByDateRange,
             icon: const Icon(Icons.date_range_rounded),
