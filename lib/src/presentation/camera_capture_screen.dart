@@ -36,8 +36,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
 
   Future<void> _initialize() async {
     try {
-      final permissionsGranted =
-          await _permissionService.requestCapturePermissions();
+      final permissionsGranted = await _permissionService
+          .requestCapturePermissions();
 
       if (!mounted) {
         return;
@@ -108,25 +108,46 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       final capturedAt = DateTime.now();
       final locationFuture = _locationService.getCurrentLocation();
       final imageFile = await controller.takePicture();
-      final location = await locationFuture;
+
+      var latitude = 0.0;
+      var longitude = 0.0;
+      var locationUnavailable = false;
+      try {
+        final location = await locationFuture.timeout(
+          const Duration(seconds: 8),
+        );
+        latitude = location.latitude;
+        longitude = location.longitude;
+      } catch (_) {
+        // Continue with a fallback coordinate when GPS is slow/unavailable.
+        locationUnavailable = true;
+      }
 
       if (!mounted) {
         return;
       }
 
+      if (locationUnavailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location unavailable. Photo captured without GPS coordinates.',
+            ),
+          ),
+        );
+      }
+
       final draft = PhotoDraft(
         tempFilePath: imageFile.path,
         capturedAt: capturedAt,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: latitude,
+        longitude: longitude,
       );
 
       final saved = await Navigator.of(context).push<bool>(
         MaterialPageRoute<bool>(
-          builder: (_) => PhotoPreviewScreen(
-            draft: draft,
-            repository: widget.repository,
-          ),
+          builder: (_) =>
+              PhotoPreviewScreen(draft: draft, repository: widget.repository),
         ),
       );
 
@@ -137,9 +158,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Capture failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Capture failed: $error')));
     } finally {
       if (mounted) {
         setState(() {

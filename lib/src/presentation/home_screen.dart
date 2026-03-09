@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
@@ -26,10 +27,22 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
   int? _cloudTotalPhotos;
+  DateTimeRange? _activeSyncRange;
+
+  DateTimeRange _currentWeekRange(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final startOfWeek = today.subtract(
+      Duration(days: today.weekday - DateTime.monday),
+    );
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    final clampedEnd = endOfWeek.isAfter(today) ? today : endOfWeek;
+    return DateTimeRange(start: startOfWeek, end: clampedEnd);
+  }
 
   @override
   void initState() {
     super.initState();
+    _activeSyncRange = _currentWeekRange(DateTime.now());
     _changesSubscription = widget.repository.changes.listen((_) {
       unawaited(_loadPhotos());
     });
@@ -141,7 +154,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshHomeScreen() async {
     try {
       await widget.repository.syncPending();
-      await widget.repository.syncFromCloudToLocalDateFolders();
+      final range = _activeSyncRange;
+      if (range == null) {
+        await widget.repository.syncFromCloudToLocalDateFolders();
+      } else {
+        await widget.repository.clearAllLocalData();
+        await widget.repository.syncFromCloudToLocalDateFolders(
+          startDate: range.start,
+          endDate: range.end,
+          clearOnEmpty: false,
+        );
+      }
       await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     } catch (error) {
       if (!mounted) {
@@ -155,14 +178,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _syncByDateRange() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final defaultRange = _currentWeekRange(now);
     final selectedRange = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime(now.year + 1),
-      initialDateRange: DateTimeRange(
-        start: now.subtract(const Duration(days: 7)),
-        end: now,
-      ),
+      lastDate: today,
+      initialDateRange: _activeSyncRange ?? defaultRange,
       helpText: 'Select Cloud Sync Range',
       saveText: 'Sync',
     );
@@ -172,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
+      _activeSyncRange = selectedRange;
       await widget.repository.clearAllLocalData();
       final imported = await widget.repository.syncFromCloudToLocalDateFolders(
         startDate: selectedRange.start,
@@ -227,6 +250,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteFolderLocalCopies(DateFolderGroup folder) async {
+    final localCount = folder.photos
+        .where((photo) => File(photo.filePath).existsSync())
+        .length;
+    if (localCount == 0) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No local files found in this folder. Items may be cloud-only.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final shouldDelete =
         await showDialog<bool>(
           context: context,
@@ -235,7 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
               'Delete local files in ${folder.key.replaceAll('/', '-')}?',
             ),
             content: Text(
-              'This will delete local copies for ${folder.photos.length} image(s). '
+              'This will delete $localCount local file(s) '
+              'from ${folder.photos.length} image(s). '
               'Cloud copies will remain available.',
             ),
             actions: [

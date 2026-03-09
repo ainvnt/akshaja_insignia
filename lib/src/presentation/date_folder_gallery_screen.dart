@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
@@ -38,10 +39,39 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
   }
 
   Future<void> _deleteAllLocal() async {
+    final localCount = _photos
+        .where((photo) => File(photo.filePath).existsSync())
+        .length;
+    if (localCount == 0) {
+      final removeFromList = await _confirmDelete(
+        title: 'No local files found',
+        message:
+            'This date folder appears cloud-only. Remove ${_photos.length} record(s) from this app list?',
+      );
+      if (removeFromList) {
+        await widget.repository.deletePhotos(_photos, deleteLocalFiles: false);
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _photos = <PhotoRecord>[];
+          _selectedIds.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Removed ${widget.photos.length} record(s) from app list.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final confirm = await _confirmDelete(
       title: 'Delete all local copies?',
       message:
-          'This removes local files for this date folder. Cloud copies remain.',
+          'This removes $localCount local file(s) for this date folder. Cloud copies remain.',
     );
     if (!confirm) {
       return;
@@ -69,10 +99,43 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
     final selectedPhotos = _photos
         .where((photo) => _selectedIds.contains(photo.id))
         .toList();
+    final selectedLocalCount = selectedPhotos
+        .where((photo) => File(photo.filePath).existsSync())
+        .length;
+    if (selectedLocalCount == 0) {
+      final removeFromList = await _confirmDelete(
+        title: 'No local files in selection',
+        message:
+            'Selected items appear cloud-only. Remove ${selectedPhotos.length} record(s) from this app list?',
+      );
+      if (removeFromList) {
+        await widget.repository.deletePhotos(
+          selectedPhotos,
+          deleteLocalFiles: false,
+        );
+        if (!mounted) {
+          return;
+        }
+        final selectedIds = selectedPhotos.map((photo) => photo.id).toSet();
+        setState(() {
+          _photos.removeWhere((photo) => selectedIds.contains(photo.id));
+          _selectedIds.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Removed ${selectedPhotos.length} record(s) from app list.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final confirm = await _confirmDelete(
       title: 'Delete selected local copies?',
       message:
-          'Delete local files for ${selectedPhotos.length} selected image(s)?',
+          'Delete $selectedLocalCount local file(s) in ${selectedPhotos.length} selected image(s)?',
     );
     if (!confirm) {
       return;

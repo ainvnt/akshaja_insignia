@@ -110,15 +110,21 @@ class PhotoRepository {
     }
 
     final file = File(record.filePath);
-    final existed = await file.exists();
-    if (existed) {
-      await file.delete();
+    var deleted = false;
+    try {
+      final existed = await file.exists();
+      if (existed) {
+        await file.delete();
+        deleted = true;
+      }
+    } catch (_) {
+      deleted = false;
     }
 
     await _pruneEmptyDateFolders(record.filePath);
 
     _notifyChanges();
-    return existed;
+    return deleted;
   }
 
   Future<int> deleteLocalCopiesForDateFolder(
@@ -127,16 +133,24 @@ class PhotoRepository {
   ) async {
     var deletedCount = 0;
 
+    final candidateDirs = <String>{};
+
     final docsDir = await getApplicationDocumentsDirectory();
     final parts = dateKey.split('/');
     if (parts.length == 3) {
-      final folderPath = p.join(
-        docsDir.path,
-        'photos',
-        parts[0],
-        parts[1],
-        parts[2],
+      candidateDirs.add(
+        p.join(docsDir.path, 'photos', parts[0], parts[1], parts[2]),
       );
+    }
+
+    for (final record in records) {
+      final inferred = _extractDateFolderPathFromRecordPath(record.filePath);
+      if (inferred != null) {
+        candidateDirs.add(inferred);
+      }
+    }
+
+    for (final folderPath in candidateDirs) {
       final folder = Directory(folderPath);
       if (await folder.exists()) {
         await for (final entity in folder.list(
@@ -147,16 +161,20 @@ class PhotoRepository {
             deletedCount++;
           }
         }
-        await folder.delete(recursive: true);
+        try {
+          await folder.delete(recursive: true);
+        } catch (_) {}
       }
     }
 
     for (final record in records) {
       final file = File(record.filePath);
-      if (await file.exists()) {
-        await file.delete();
-        deletedCount++;
-      }
+      try {
+        if (await file.exists()) {
+          await file.delete();
+          deletedCount++;
+        }
+      } catch (_) {}
       await _pruneEmptyDateFolders(record.filePath);
     }
 
@@ -408,6 +426,27 @@ class PhotoRepository {
       await current.delete();
       current = current.parent;
     }
+  }
+
+  String? _extractDateFolderPathFromRecordPath(String filePath) {
+    final normalized = p.normalize(filePath).replaceAll('\\', '/');
+    final marker = '/photos/';
+    final markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex == -1) {
+      return null;
+    }
+
+    final after = normalized.substring(markerIndex + marker.length);
+    final parts = after.split('/');
+    if (parts.length < 4) {
+      return null;
+    }
+
+    final year = parts[0];
+    final month = parts[1];
+    final day = parts[2];
+    final base = normalized.substring(0, markerIndex);
+    return p.join(base, 'photos', year, month, day);
   }
 
   _S3KeyMetadata? _parseS3ObjectKey(String objectKey) {
