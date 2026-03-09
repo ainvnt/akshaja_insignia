@@ -195,6 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       _activeSyncRange = selectedRange;
+      imageCache.clear();
+      imageCache.clearLiveImages();
       await widget.repository.clearAllLocalData();
       final imported = await widget.repository.syncFromCloudToLocalDateFolders(
         startDate: selectedRange.start,
