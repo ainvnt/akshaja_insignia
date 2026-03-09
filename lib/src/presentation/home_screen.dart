@@ -74,8 +74,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeScreen() async {
     try {
-      await widget.repository.syncPending();
-      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
+      await _loadPhotos();
+      if (_isOnline) {
+        await widget.repository.syncPending();
+        await _loadCloudCount();
+      } else {
+        _cloudTotalPhotos = null;
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -117,12 +122,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCloudCount() async {
-    final cloudCount = await widget.repository.getCloudPhotoCount();
+    try {
+      final cloudCount = await widget.repository.getCloudPhotoCount();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cloudTotalPhotos = cloudCount;
+      });
+    } on SocketException {
+      _setOfflineMode();
+    } catch (_) {
+      // Keep local UI usable if cloud count fails for any reason.
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cloudTotalPhotos = null;
+      });
+    }
+  }
+
+  void _setOfflineMode() {
     if (!mounted) {
       return;
     }
     setState(() {
-      _cloudTotalPhotos = cloudCount;
+      _isOnline = false;
+      _cloudTotalPhotos = null;
     });
   }
 
@@ -626,13 +653,15 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(_errorText!, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: () {
-                setState(() {
-                  _loading = true;
-                  _errorText = null;
-                });
-                unawaited(_initializeScreen());
-              },
+              onPressed: _isOnline
+                  ? () {
+                      setState(() {
+                        _loading = true;
+                        _errorText = null;
+                      });
+                      unawaited(_initializeScreen());
+                    }
+                  : null,
               child: const Text('Retry'),
             ),
           ],
