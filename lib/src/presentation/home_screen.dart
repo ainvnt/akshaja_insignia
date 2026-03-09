@@ -71,7 +71,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadPhotos() async {
     final records = await widget.repository.getAllPhotos();
-    final sorted = <PhotoRecord>[...records]
+    final visibleRecords = records
+        .where(_isWithinActiveDateRange)
+        .toList(growable: false);
+    final sorted = <PhotoRecord>[...visibleRecords]
       ..sort((a, b) {
         final folderA = _dateFolderKey(a.filePath);
         final folderB = _dateFolderKey(b.filePath);
@@ -126,18 +129,56 @@ class _HomeScreenState extends State<HomeScreen> {
     return DateFormat('yyyy/MM/dd').format(photo.capturedAt.toLocal());
   }
 
+  bool _isWithinActiveDateRange(PhotoRecord photo) {
+    final range = _activeSyncRange;
+    if (range == null) {
+      return true;
+    }
+
+    final key = _dateFolderKey(photo.filePath);
+    if (key.isNotEmpty) {
+      final parts = key.split('/');
+      if (parts.length == 3) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final day = int.tryParse(parts[2]);
+        if (year != null && month != null && day != null) {
+          final folderDate = DateTime(year, month, day);
+          return !folderDate.isBefore(range.start) &&
+              !folderDate.isAfter(range.end);
+        }
+      }
+    }
+
+    final localCaptureDate = DateTime(
+      photo.capturedAt.toLocal().year,
+      photo.capturedAt.toLocal().month,
+      photo.capturedAt.toLocal().day,
+    );
+    return !localCaptureDate.isBefore(range.start) &&
+        !localCaptureDate.isAfter(range.end);
+  }
+
   Future<void> _syncPendingPhotos() async {
     try {
       await widget.repository.syncPending();
-      final imported = await widget.repository
-          .syncFromCloudToLocalDateFolders();
+      final range = _activeSyncRange;
+      final imported = await widget.repository.syncFromCloudToLocalDateFolders(
+        startDate: range?.start,
+        endDate: range?.end,
+        clearOnEmpty: false,
+      );
       await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
       if (!mounted) {
         return;
       }
       final message = imported > 0
-          ? 'Sync complete. Imported $imported cloud item(s). Thumbnails load on demand.'
-          : 'Sync complete.';
+          ? (range == null
+                ? 'Sync complete. Imported $imported cloud item(s). Thumbnails load on demand.'
+                : 'Sync complete for selected range. Imported $imported cloud item(s).')
+          : (range == null
+                ? 'Sync complete.'
+                : 'Sync complete. No new cloud items in selected range.');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -513,9 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .length;
       final uploadedForSummary = _cloudTotalPhotos ?? 0;
       final totalForSummary = uploadedForSummary + pendingCount;
-      final uploadedLabel = _cloudTotalPhotos != null
-          ? 'Cloud Total'
-          : 'Uploaded';
+      final uploadedLabel = _cloudTotalPhotos != null ? 'Cloud' : 'Uploaded';
       return RefreshIndicator(
         onRefresh: _refreshHomeScreen,
         child: ListView(
@@ -527,6 +566,8 @@ class _HomeScreenState extends State<HomeScreen> {
               uploadedPhotos: uploadedForSummary,
               pendingPhotos: pendingCount,
               uploadedLabel: uploadedLabel,
+              infoText: _dateRangeLabel(),
+              rangePhotos: _photos.length,
             ),
             SizedBox(height: 20),
             const Center(child: Text('No date folders found.')),
@@ -547,9 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : uploadedCount)
         : uploadedCount;
     final totalForSummary = uploadedForSummary + pendingCount;
-    final uploadedLabel = _cloudTotalPhotos != null
-        ? 'Cloud Total'
-        : 'Uploaded';
+    final uploadedLabel = _cloudTotalPhotos != null ? 'Cloud' : 'Uploaded';
 
     return RefreshIndicator(
       onRefresh: _refreshHomeScreen,
@@ -567,6 +606,8 @@ class _HomeScreenState extends State<HomeScreen> {
               uploadedPhotos: uploadedForSummary,
               pendingPhotos: pendingCount,
               uploadedLabel: uploadedLabel,
+              infoText: _dateRangeLabel(),
+              rangePhotos: _photos.length,
             );
           }
 
@@ -599,5 +640,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         )
         .toList();
+  }
+
+  String _dateRangeLabel() {
+    final range = _activeSyncRange;
+    if (range == null) {
+      return 'Date Range: All dates';
+    }
+
+    final startLabel = DateFormat('yyyy-MM-dd').format(range.start);
+    final endLabel = DateFormat('yyyy-MM-dd').format(range.end);
+    return 'Date Range: $startLabel to $endLabel';
   }
 }

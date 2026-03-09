@@ -7,22 +7,46 @@ class HomeSummaryCard extends StatelessWidget {
     required this.uploadedPhotos,
     this.pendingPhotos,
     this.uploadedLabel = 'Uploaded',
+    this.infoText,
+    this.rangePhotos,
   });
 
   final int totalPhotos;
   final int uploadedPhotos;
   final int? pendingPhotos;
   final String uploadedLabel;
+  final String? infoText;
+  final int? rangePhotos;
 
   @override
   Widget build(BuildContext context) {
     final pending = pendingPhotos ?? (totalPhotos - uploadedPhotos);
+    final metrics = <({String label, String value, IconData icon})>[
+      (
+        label: 'Total',
+        value: '$totalPhotos',
+        icon: Icons.photo_library_rounded,
+      ),
+      (
+        label: uploadedLabel,
+        value: '$uploadedPhotos',
+        icon: Icons.cloud_done_rounded,
+      ),
+      (label: 'Pending', value: '$pending', icon: Icons.schedule_rounded),
+      if (rangePhotos != null)
+        (
+          label: 'In Range',
+          value: '$rangePhotos',
+          icon: Icons.filter_alt_rounded,
+        ),
+    ];
+
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -32,43 +56,47 @@ class HomeSummaryCard extends StatelessWidget {
             ],
           ),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Capture Overview',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryItem(
-                    label: 'Total',
-                    value: '$totalPhotos',
-                    icon: Icons.photo_library_rounded,
-                  ),
+            if (infoText != null) ...[
+              Text(
+                infoText!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryItem(
-                    label: uploadedLabel,
-                    value: '$uploadedPhotos',
-                    icon: Icons.cloud_done_rounded,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryItem(
-                    label: 'Pending',
-                    value: '$pending',
-                    icon: Icons.schedule_rounded,
-                  ),
-                ),
-              ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 8.0;
+                final itemCount = metrics.length;
+                final availableWidth =
+                    constraints.maxWidth -
+                    (spacing * (itemCount > 0 ? itemCount - 1 : 0));
+                final itemWidth = itemCount > 0
+                    ? availableWidth / itemCount
+                    : constraints.maxWidth;
+
+                return Row(
+                  children: [
+                    for (var i = 0; i < metrics.length; i++) ...[
+                      if (i > 0) const SizedBox(width: spacing),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _SummaryItem(
+                          label: metrics[i].label,
+                          value: metrics[i].value,
+                          icon: metrics[i].icon,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -91,22 +119,27 @@ class _SummaryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 18),
-          const SizedBox(height: 6),
+          Icon(icon, size: 16),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            maxLines: 1,
           ),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            style: const TextStyle(fontSize: 11, color: Colors.black54),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
