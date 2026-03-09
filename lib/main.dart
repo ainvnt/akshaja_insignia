@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final repository = PhotoRepository();
+  final repository = PhotoRepository(
+    onLocalFilesDeleted: () {
+      imageCache.clear();
+      imageCache.clearLiveImages();
+    },
+  );
   await repository.initialize();
 
   runApp(MyApp(repository: repository));

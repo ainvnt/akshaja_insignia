@@ -32,11 +32,6 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
-  void _clearUiImageCache() {
-    imageCache.clear();
-    imageCache.clearLiveImages();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -89,9 +84,6 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
 
     if (!mounted) {
       return;
-    }
-    if (deletedCount > 0) {
-      _clearUiImageCache();
     }
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
@@ -162,9 +154,6 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
 
     if (!mounted) {
       return;
-    }
-    if (deletedCount > 0) {
-      _clearUiImageCache();
     }
     setState(() {
       _selectedIds.clear();

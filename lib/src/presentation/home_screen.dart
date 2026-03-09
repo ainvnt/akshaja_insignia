@@ -29,11 +29,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int? _cloudTotalPhotos;
   DateTimeRange? _activeSyncRange;
 
-  void _clearUiImageCache() {
-    imageCache.clear();
-    imageCache.clearLiveImages();
-  }
-
   DateTimeRange _currentWeekRange(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final startOfWeek = today.subtract(
@@ -311,9 +306,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) {
       return;
     }
-    if (deletedCount > 0) {
-      _clearUiImageCache();
-    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Deleted $deletedCount local file(s).')),
     );
@@ -355,9 +347,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) {
       return;
-    }
-    if (deletedLocalCount > 0) {
-      _clearUiImageCache();
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -417,9 +406,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) {
       return;
-    }
-    if (deletedLocalCount > 0) {
-      _clearUiImageCache();
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

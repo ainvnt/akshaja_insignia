@@ -19,15 +19,18 @@ class PhotoRepository {
     PhotoApiClient? apiClient,
     NetworkService? networkService,
     PhotoFileService? photoFileService,
+    void Function()? onLocalFilesDeleted,
   }) : _database = database ?? PhotoDatabase(),
        _apiClient = apiClient ?? PhotoApiClient(),
        _networkService = networkService ?? NetworkService(),
-       _photoFileService = photoFileService ?? PhotoFileService();
+       _photoFileService = photoFileService ?? PhotoFileService(),
+       _onLocalFilesDeleted = onLocalFilesDeleted;
 
   final PhotoDatabase _database;
   final PhotoApiClient _apiClient;
   final NetworkService _networkService;
   final PhotoFileService _photoFileService;
+  final void Function()? _onLocalFilesDeleted;
   final Uuid _uuid = const Uuid();
   final StreamController<void> _changesController =
       StreamController<void>.broadcast();
@@ -124,6 +127,7 @@ class PhotoRepository {
     await _pruneEmptyDateFolders(record.filePath);
 
     _notifyChanges();
+    _notifyLocalFilesDeleted(deletedCount: deleted ? 1 : 0);
     return deleted;
   }
 
@@ -179,6 +183,7 @@ class PhotoRepository {
     }
 
     _notifyChanges();
+    _notifyLocalFilesDeleted(deletedCount: deletedCount);
     return deletedCount;
   }
 
@@ -305,11 +310,13 @@ class PhotoRepository {
   }
 
   Future<void> clearAllLocalData() async {
+    var deletedLocalCount = 0;
     final existingRecords = await _database.fetchAll();
     for (final record in existingRecords) {
       final file = File(record.filePath);
       if (await file.exists()) {
         await file.delete();
+        deletedLocalCount++;
       }
     }
 
@@ -317,10 +324,12 @@ class PhotoRepository {
     final photosRoot = Directory(p.join(docsDir.path, 'photos'));
     if (await photosRoot.exists()) {
       await photosRoot.delete(recursive: true);
+      deletedLocalCount++;
     }
 
     await _database.clearAll();
     _notifyChanges();
+    _notifyLocalFilesDeleted(deletedCount: deletedLocalCount);
   }
 
   Future<int> deletePhotos(
@@ -345,7 +354,17 @@ class PhotoRepository {
 
     await _database.deleteByIds(records.map((e) => e.id).toList());
     _notifyChanges();
+    _notifyLocalFilesDeleted(deletedCount: deletedLocalCount);
     return deletedLocalCount;
+  }
+
+  void _notifyLocalFilesDeleted({required int deletedCount}) {
+    if (deletedCount <= 0) {
+      return;
+    }
+    try {
+      _onLocalFilesDeleted?.call();
+    } catch (_) {}
   }
 
   Future<void> syncPending() async {
