@@ -8,6 +8,7 @@ import 'package:akshaja_insignia/src/presentation/models/date_folder_group.dart'
 import 'package:akshaja_insignia/src/presentation/widgets/date_folder_tile.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/home_summary_card.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
+import 'package:akshaja_insignia/src/services/network_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -22,8 +23,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<void>? _changesSubscription;
+  StreamSubscription<bool>? _networkSubscription;
+  final NetworkService _networkService = NetworkService();
 
   bool _loading = true;
+  bool _isOnline = true;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
   int? _cloudTotalPhotos;
@@ -43,10 +47,29 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _activeSyncRange = _currentWeekRange(DateTime.now());
+    unawaited(_initializeNetworkState());
+    _networkSubscription = _networkService.onStatusChanged.listen((isOnline) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isOnline = isOnline;
+      });
+    });
     _changesSubscription = widget.repository.changes.listen((_) {
       unawaited(_loadPhotos());
     });
     unawaited(_initializeScreen());
+  }
+
+  Future<void> _initializeNetworkState() async {
+    final isOnline = await _networkService.isOnline();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isOnline = isOnline;
+    });
   }
 
   Future<void> _initializeScreen() async {
@@ -191,6 +214,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _syncPendingPhotos() async {
+    if (!_isOnline) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Sync is disabled.'),
+        ),
+      );
+      return;
+    }
+
     try {
       await widget.repository.syncPending();
       final range = _activeSyncRange;
@@ -224,6 +259,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshHomeScreen() async {
+    if (!_isOnline) {
+      return;
+    }
+
     if (await _shouldBlockCloudPull()) {
       return;
     }
@@ -253,6 +292,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _syncByDateRange() async {
+    if (!_isOnline) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Sync is disabled.'),
+        ),
+      );
+      return;
+    }
+
     if (await _shouldBlockCloudPull()) {
       return;
     }
@@ -502,6 +553,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     unawaited(_changesSubscription?.cancel());
+    unawaited(_networkSubscription?.cancel());
     super.dispose();
   }
 
@@ -520,14 +572,18 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Delete all folders',
           ),
           IconButton(
-            onPressed: _syncByDateRange,
+            onPressed: _isOnline ? _syncByDateRange : null,
             icon: const Icon(Icons.date_range_rounded),
-            tooltip: 'Sync cloud by date range',
+            tooltip: _isOnline
+                ? 'Sync cloud by date range'
+                : 'Offline: sync disabled',
           ),
           IconButton(
-            onPressed: _syncPendingPhotos,
+            onPressed: _isOnline ? _syncPendingPhotos : null,
             icon: const Icon(Icons.sync),
-            tooltip: 'Sync pending uploads',
+            tooltip: _isOnline
+                ? 'Sync pending uploads'
+                : 'Offline: sync disabled',
           ),
         ],
       ),
@@ -543,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        child: _buildBody(),
+        child: _wrapWithOfflineBanner(_buildBody()),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCamera,
@@ -560,9 +616,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_errorText != null) {
-      return RefreshIndicator(
-        onRefresh: _refreshHomeScreen,
-        child: ListView(
+      return _buildRefreshContainer(
+        ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           children: [
@@ -594,9 +649,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final uploadedForSummary = _cloudTotalPhotos ?? 0;
       final totalForSummary = uploadedForSummary + pendingCount;
       final uploadedLabel = _cloudTotalPhotos != null ? 'Cloud' : 'Uploaded';
-      return RefreshIndicator(
-        onRefresh: _refreshHomeScreen,
-        child: ListView(
+      return _buildRefreshContainer(
+        ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           children: [
@@ -629,9 +683,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalForSummary = uploadedForSummary + pendingCount;
     final uploadedLabel = _cloudTotalPhotos != null ? 'Cloud' : 'Uploaded';
 
-    return RefreshIndicator(
-      onRefresh: _refreshHomeScreen,
-      child: ListView.separated(
+    return _buildRefreshContainer(
+      ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         itemCount: folders.length + 1,
@@ -659,6 +712,48 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildRefreshContainer(Widget child) {
+    if (!_isOnline) {
+      return child;
+    }
+
+    return RefreshIndicator(onRefresh: _refreshHomeScreen, child: child);
+  }
+
+  Widget _wrapWithOfflineBanner(Widget child) {
+    if (_isOnline) {
+      return child;
+    }
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.45)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Offline mode: refresh and sync are disabled.',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 

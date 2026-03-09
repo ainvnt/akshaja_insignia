@@ -19,9 +19,8 @@ class LocationService {
       throw Exception('Location permission denied.');
     }
 
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.high,
+    return Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
     );
-    return Geolocator.getCurrentPosition(locationSettings: settings);
   }
 }
