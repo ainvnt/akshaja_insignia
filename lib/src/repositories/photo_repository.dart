@@ -85,6 +85,11 @@ class PhotoRepository {
     return _database.fetchAll();
   }
 
+  Future<int> getPendingUploadCount() async {
+    final pending = await _database.fetchPending();
+    return pending.length;
+  }
+
   Future<int> getCloudPhotoCount() async {
     final objectKeys = await _apiClient.listRemoteObjectKeys();
     if (objectKeys.isEmpty) {
@@ -129,6 +134,30 @@ class PhotoRepository {
     _notifyChanges();
     _notifyLocalFilesDeleted(deletedCount: deleted ? 1 : 0);
     return deleted;
+  }
+
+  Future<bool> cancelPendingUploadAndDeleteLocal(PhotoRecord record) async {
+    if (record.uploadStatus != UploadStatus.pending) {
+      return false;
+    }
+
+    var deletedLocal = false;
+    final file = File(record.filePath);
+    try {
+      if (await file.exists()) {
+        await file.delete();
+        deletedLocal = true;
+      }
+    } catch (_) {
+      deletedLocal = false;
+    }
+
+    await _pruneEmptyDateFolders(record.filePath);
+    await _database.deleteByIds(<String>[record.id]);
+
+    _notifyChanges();
+    _notifyLocalFilesDeleted(deletedCount: deletedLocal ? 1 : 0);
+    return true;
   }
 
   Future<int> deleteLocalCopiesForDateFolder(

@@ -159,6 +159,37 @@ class _HomeScreenState extends State<HomeScreen> {
         !localCaptureDate.isAfter(range.end);
   }
 
+  Future<bool> _shouldBlockCloudPull() async {
+    final pendingCount = await widget.repository.getPendingUploadCount();
+    if (pendingCount <= 0) {
+      return false;
+    }
+
+    if (!mounted) {
+      return true;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Upload in progress'),
+        content: Text(
+          'Cannot run pull-down refresh or cloud sync while '
+          '$pendingCount file(s) are pending upload. '
+          'Please upload pending files first.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    return true;
+  }
+
   Future<void> _syncPendingPhotos() async {
     try {
       await widget.repository.syncPending();
@@ -193,6 +224,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshHomeScreen() async {
+    if (await _shouldBlockCloudPull()) {
+      return;
+    }
+
     try {
       await widget.repository.syncPending();
       final range = _activeSyncRange;
@@ -218,6 +253,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _syncByDateRange() async {
+    if (await _shouldBlockCloudPull()) {
+      return;
+    }
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final defaultRange = _currentWeekRange(now);

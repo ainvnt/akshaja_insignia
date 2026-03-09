@@ -28,6 +28,7 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
   late PhotoRecord _photo;
   Future<Uint8List?>? _cloudBytesFuture;
   bool _restoring = false;
+  bool _deletingPending = false;
   final TransformationController _zoomController = TransformationController();
   TapDownDetails? _doubleTapDetails;
 
@@ -75,6 +76,66 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
       if (mounted) {
         setState(() {
           _restoring = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopUploadAndDeletePending() async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Stop upload and delete local file?'),
+            content: const Text(
+              'This photo is pending upload. This will cancel cloud upload and permanently delete the local file from this device.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete Permanently'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    setState(() {
+      _deletingPending = true;
+    });
+
+    try {
+      final deleted = await widget.repository.cancelPendingUploadAndDeleteLocal(
+        _photo,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!deleted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Delete failed. Please try again.')),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pending upload cancelled and deleted.')),
+      );
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingPending = false;
         });
       }
     }
@@ -167,6 +228,31 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                               _restoring
                                   ? 'Storing locally...'
                                   : 'Store Local Copy',
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (_photo.uploadStatus == UploadStatus.pending) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _deletingPending
+                                ? null
+                                : _stopUploadAndDeletePending,
+                            icon: _deletingPending
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.delete_forever_rounded),
+                            label: Text(
+                              _deletingPending
+                                  ? 'Deleting...'
+                                  : 'Stop Upload & Delete Local',
                             ),
                           ),
                         ),

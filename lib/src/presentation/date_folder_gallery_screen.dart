@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -29,6 +30,7 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
       <String, Future<Uint8List?>>{};
   late List<PhotoRecord> _photos;
   final Set<String> _selectedIds = <String>{};
+  StreamSubscription<void>? _changesSubscription;
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
@@ -36,6 +38,49 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
   void initState() {
     super.initState();
     _photos = List<PhotoRecord>.from(widget.photos);
+    _changesSubscription = widget.repository.changes.listen((_) {
+      unawaited(_reloadPhotosForDateFolder());
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_changesSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _reloadPhotosForDateFolder() async {
+    final all = await widget.repository.getAllPhotos();
+    final filtered =
+        all
+            .where((photo) => _dateFolderKey(photo.filePath) == widget.dateKey)
+            .toList()
+          ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _photos = filtered;
+      _selectedIds.removeWhere((id) => !_photos.any((photo) => photo.id == id));
+    });
+  }
+
+  String _dateFolderKey(String filePath) {
+    final normalized = filePath.replaceAll('\\', '/');
+    final marker = '/photos/';
+    final markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex == -1) {
+      return '';
+    }
+
+    final afterPhotos = normalized.substring(markerIndex + marker.length);
+    final parts = afterPhotos.split('/');
+    if (parts.length < 4) {
+      return '';
+    }
+    return '${parts[0]}/${parts[1]}/${parts[2]}';
   }
 
   Future<void> _deleteAllLocal() async {
@@ -260,7 +305,9 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
                         selected: _selectedIds.contains(photo.id),
                         selectionMode: _selectionMode,
                         onToggleSelection: () => _toggleSelection(photo),
-                        onAfterPreview: () => setState(() {}),
+                        onAfterPreview: () {
+                          unawaited(_reloadPhotosForDateFolder());
+                        },
                       );
                     },
                   ),
