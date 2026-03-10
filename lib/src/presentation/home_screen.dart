@@ -280,6 +280,16 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final syncConfirmed = await _confirmCloudReload(
+      title: 'Sync from cloud?',
+      message:
+          'This will upload pending local items and pull latest cloud data for your current date range.',
+      actionLabel: 'Sync Now',
+    );
+    if (!syncConfirmed) {
+      return;
+    }
+
     try {
       await widget.repository.syncPending();
       final range = _activeSyncRange;
@@ -325,6 +335,17 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final refreshConfirmed = await _confirmCloudReload(
+      title: 'Refresh from cloud?',
+      message:
+          'This will pull latest data from cloud. '
+          '${_activeSyncRange != null ? 'Existing local files for the selected range will be cleared before reload.' : 'Local data may be refreshed based on cloud state.'}',
+      actionLabel: 'Refresh',
+    );
+    if (!refreshConfirmed) {
+      return;
+    }
+
     try {
       await widget.repository.syncPending();
       final range = _activeSyncRange;
@@ -367,6 +388,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (await _shouldBlockCloudPull()) {
+      return;
+    }
+
+    final syncConfirmed = await _confirmCloudReload(
+      title: 'Sync from cloud?',
+      message:
+          'This will clear current local data and reload photos from cloud for the selected date range.',
+      actionLabel: 'Continue Sync',
+    );
+    if (!syncConfirmed) {
       return;
     }
 
@@ -678,7 +709,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _wrapWithOfflineBanner(_buildBody()),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _lockAllActions ? null : _openCamera,
+        onPressed: _openCamera,
         tooltip: 'Open camera',
         icon: const Icon(Icons.camera_alt_rounded),
         label: const Text('Capture'),
@@ -846,6 +877,36 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(child: child),
       ],
     );
+  }
+
+  Future<bool> _confirmCloudReload({
+    required String title,
+    required String message,
+    required String actionLabel,
+  }) async {
+    if (!mounted) {
+      return false;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
   }
 
   List<DateFolderGroup> _buildDateFolders() {
