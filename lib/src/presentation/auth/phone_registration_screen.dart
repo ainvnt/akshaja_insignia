@@ -1,3 +1,4 @@
+import 'package:akshaja_insignia/src/presentation/auth/sign_in_screen.dart';
 import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -49,8 +50,7 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
         final result = await _auth.signInWithCredential(credential);
         final user = result.user;
         if (user != null) {
-          await user.updateDisplayName(_displayNameController.text.trim());
-          await _persistProfile(
+          await _completeRegistration(
             user,
             isNewUser: result.additionalUserInfo?.isNewUser ?? false,
           );
@@ -109,13 +109,11 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
       final result = await _auth.signInWithCredential(credential);
       final user = result.user;
       if (user != null) {
-        await user.updateDisplayName(_displayNameController.text.trim());
-        await _persistProfile(
+        await _completeRegistration(
           user,
           isNewUser: result.additionalUserInfo?.isNewUser ?? false,
         );
       }
-      _showMessage('Phone registration successful.');
     } on FirebaseAuthException catch (error) {
       _showMessage(_authErrorMessage(error));
     } catch (_) {
@@ -143,6 +141,22 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
     } catch (_) {
       _showMessage('Account created, but profile data could not be saved.');
     }
+  }
+
+  Future<void> _completeRegistration(
+    User user, {
+    required bool isNewUser,
+  }) async {
+    await user.updateDisplayName(_displayNameController.text.trim());
+    await _persistProfile(user, isNewUser: isNewUser);
+    await _auth.signOut();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const SignInScreen()),
+    );
+    _showMessage('Registration successful. Please sign in.');
   }
 
   String _profileSaveErrorMessage(FirebaseException error) {

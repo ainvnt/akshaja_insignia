@@ -8,6 +8,8 @@ import 'package:akshaja_insignia/src/presentation/models/date_folder_group.dart'
 import 'package:akshaja_insignia/src/presentation/widgets/date_folder_tile.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/home_summary_card.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
+import 'package:akshaja_insignia/src/services/auto_refresh_memory_service.dart';
+import 'package:akshaja_insignia/src/services/auth_ui_state_service.dart';
 import 'package:akshaja_insignia/src/services/network_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -60,6 +62,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _autoRefreshEnabled = AutoRefreshMemoryService.enabled;
+    _autoRefreshInterval = AutoRefreshMemoryService.interval;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (AuthUiStateService.consumeLoginSuccessForHome()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful. Welcome back!')),
+        );
+      }
+    });
     _activeSyncRange = _currentWeekRange(DateTime.now());
     unawaited(_initializeNetworkState());
     _networkSubscription = _networkService.onStatusChanged.listen((isOnline) {
@@ -73,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _changesSubscription = widget.repository.changes.listen((_) {
       unawaited(_loadPhotos());
     });
+    _restartAutoRefreshTimer();
     unawaited(_initializeScreen());
   }
 
@@ -101,6 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _autoRefreshEnabled = enabled;
     });
+    AutoRefreshMemoryService.save(
+      isEnabled: _autoRefreshEnabled,
+      every: _autoRefreshInterval,
+    );
     _restartAutoRefreshTimer();
   }
 
@@ -211,6 +230,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _autoRefreshEnabled = enabled;
       _autoRefreshInterval = selectedInterval;
     });
+    AutoRefreshMemoryService.save(
+      isEnabled: _autoRefreshEnabled,
+      every: _autoRefreshInterval,
+    );
     _restartAutoRefreshTimer();
   }
 

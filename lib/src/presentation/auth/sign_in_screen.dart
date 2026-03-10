@@ -1,42 +1,34 @@
-import 'package:akshaja_insignia/src/presentation/auth/sign_in_screen.dart';
+import 'package:akshaja_insignia/src/services/auth_ui_state_service.dart';
 import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class EmailRegistrationScreen extends StatefulWidget {
-  const EmailRegistrationScreen({super.key});
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
 
   @override
-  State<EmailRegistrationScreen> createState() =>
-      _EmailRegistrationScreenState();
+  State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
+class _SignInScreenState extends State<SignInScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final RegistrationProfileService _profileService =
       RegistrationProfileService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
 
   bool _loading = false;
 
   @override
   void dispose() {
-    _displayNameController.dispose();
     _emailController.dispose();
-    _mobileController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _registerWithEmail() async {
+  Future<void> _signInWithEmail() async {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -47,18 +39,19 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     });
 
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
       final user = credential.user;
       if (user != null) {
-        await _completeRegistration(user, isNewUser: true);
+        await _persistLastLogin(user);
       }
+      await _handleSignInSuccess();
     } on FirebaseAuthException catch (error) {
       _showMessage(_authErrorMessage(error));
     } catch (_) {
-      _showMessage('Email registration failed. Please try again.');
+      _showMessage('Sign in failed. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
@@ -68,48 +61,43 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     }
   }
 
-  Future<void> _persistProfile(User user, {required bool isNewUser}) async {
+  Future<void> _persistLastLogin(User user) async {
     try {
       await _profileService.saveUserProfile(
         user: user,
         registrationMethod: 'email',
-        isNewUser: isNewUser,
-        displayName: _displayNameController.text,
-        mobile: _mobileController.text,
+        isNewUser: false,
       );
-    } on FirebaseException catch (error) {
-      _showMessage(_profileSaveErrorMessage(error));
+    } on FirebaseException {
+      _showMessage('Signed in, but profile sync could not be completed.');
     } catch (_) {
-      _showMessage('Account created, but profile data could not be saved.');
+      _showMessage('Signed in, but profile sync could not be completed.');
     }
   }
 
-  Future<void> _completeRegistration(
-    User user, {
-    required bool isNewUser,
-  }) async {
-    await user.updateDisplayName(_displayNameController.text.trim());
-    await _persistProfile(user, isNewUser: isNewUser);
-    await _auth.signOut();
+  Future<void> _handleSignInSuccess() async {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const SignInScreen()),
-    );
-    _showMessage('Registration successful. Please sign in.');
+    AuthUiStateService.markLoginSuccessForHome();
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  String _profileSaveErrorMessage(FirebaseException error) {
+  String _authErrorMessage(FirebaseAuthException error) {
     switch (error.code) {
-      case 'permission-denied':
-        return 'Account created, but Firestore denied write. Update Firestore rules to allow users to write their own profile.';
-      case 'unavailable':
-        return 'Account created, but Firestore is currently unavailable. Check internet and try again.';
-      case 'failed-precondition':
-        return 'Account created, but Firestore database is not set up yet. Create Firestore in Firebase Console.';
+      case 'user-not-found':
+        return 'No user found with this email.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'invalid-email':
+        return 'The email address is invalid.';
+      case 'operation-not-allowed':
+        return 'Email/password sign-in is disabled in Firebase.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
       default:
-        return 'Account created, but profile data could not be saved (${error.code}).';
+        return error.message ?? 'Sign in failed.';
     }
   }
 
@@ -120,21 +108,6 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _authErrorMessage(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'operation-not-allowed':
-        return 'Email/password sign-in is disabled in Firebase. Enable it in Firebase Console > Authentication > Sign-in method.';
-      case 'email-already-in-use':
-        return 'This email is already registered. Please sign in instead.';
-      case 'invalid-email':
-        return 'The email address is invalid.';
-      case 'weak-password':
-        return 'Password is too weak. Use at least 6 characters.';
-      default:
-        return error.message ?? 'Email registration failed.';
-    }
   }
 
   @override
@@ -160,9 +133,8 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _AuthHeroCard(
-                      title: 'Email Registration',
-                      subtitle:
-                          'Create your account with email ID and password',
+                      title: 'Sign In',
+                      subtitle: 'Access your account with email and password',
                       onBack: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(height: 14),
@@ -185,7 +157,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              'Hello!',
+                              'Welcome Back!',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 color: const Color(0xFF3D3099),
@@ -193,23 +165,6 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
-                            _AuthInputField(
-                              controller: _displayNameController,
-                              keyboardType: TextInputType.name,
-                              labelText: 'Full Name',
-                              prefixIcon: Icons.person_outline,
-                              validator: (value) {
-                                final text = (value ?? '').trim();
-                                if (text.isEmpty) {
-                                  return 'Enter full name';
-                                }
-                                if (text.length < 2) {
-                                  return 'Name is too short';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
                             _AuthInputField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
@@ -229,48 +184,14 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                             ),
                             const SizedBox(height: 12),
                             _AuthInputField(
-                              controller: _mobileController,
-                              keyboardType: TextInputType.phone,
-                              labelText: 'Mobile Number',
-                              prefixIcon: Icons.phone_android_outlined,
-                              validator: (value) {
-                                final text = (value ?? '').trim();
-                                if (text.isEmpty) {
-                                  return 'Enter mobile number';
-                                }
-                                final digitsOnly = text.replaceAll(
-                                  RegExp(r'[^0-9]'),
-                                  '',
-                                );
-                                if (digitsOnly.length < 10) {
-                                  return 'Enter a valid mobile number';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            _AuthInputField(
                               controller: _passwordController,
                               obscureText: true,
                               labelText: 'Password',
                               prefixIcon: Icons.lock_outline,
                               validator: (value) {
                                 final text = value ?? '';
-                                if (text.length < 6) {
-                                  return 'Password must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            _AuthInputField(
-                              controller: _confirmPasswordController,
-                              obscureText: true,
-                              labelText: 'Confirm Password',
-                              prefixIcon: Icons.verified_user_outlined,
-                              validator: (value) {
-                                if (value != _passwordController.text) {
-                                  return 'Passwords do not match';
+                                if (text.isEmpty) {
+                                  return 'Enter password';
                                 }
                                 return null;
                               },
@@ -286,7 +207,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
-                              onPressed: _loading ? null : _registerWithEmail,
+                              onPressed: _loading ? null : _signInWithEmail,
                               child: _loading
                                   ? const SizedBox(
                                       width: 20,
@@ -295,7 +216,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text('Sign Up with Email'),
+                                  : const Text('Sign In'),
                             ),
                           ],
                         ),
@@ -455,10 +376,10 @@ class _AuthInputField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      autofillHints: const <String>[],
+      obscureText: obscureText,
       enableSuggestions: false,
       autocorrect: false,
-      obscureText: obscureText,
+      autofillHints: const <String>[],
       validator: validator,
       decoration: InputDecoration(
         labelText: labelText,

@@ -1,5 +1,6 @@
 import 'package:akshaja_insignia/src/presentation/auth/email_registration_screen.dart';
 import 'package:akshaja_insignia/src/presentation/auth/phone_registration_screen.dart';
+import 'package:akshaja_insignia/src/presentation/auth/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 
 class RegistrationScreen extends StatelessWidget {
@@ -42,6 +43,13 @@ class RegistrationScreen extends StatelessWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const PhoneRegistrationScreen(),
+                          ),
+                        );
+                      },
+                      onSignInTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SignInScreen(),
                           ),
                         );
                       },
@@ -157,10 +165,15 @@ class _TopBrandCard extends StatelessWidget {
 }
 
 class _ChoicePanel extends StatelessWidget {
-  const _ChoicePanel({required this.onEmailTap, required this.onPhoneTap});
+  const _ChoicePanel({
+    required this.onEmailTap,
+    required this.onPhoneTap,
+    required this.onSignInTap,
+  });
 
   final VoidCallback onEmailTap;
   final VoidCallback onPhoneTap;
+  final VoidCallback onSignInTap;
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +217,13 @@ class _ChoicePanel extends StatelessWidget {
             label: 'Continue with Mobile OTP',
             onTap: onPhoneTap,
             outlined: true,
+          ),
+          const SizedBox(height: 10),
+          _ActionButton(
+            icon: Icons.login_rounded,
+            label: 'Already have an account? Sign In',
+            onTap: onSignInTap,
+            outlined: false,
           ),
           const SizedBox(height: 16),
           Container(height: 1, color: const Color(0xFFE1E4F3)),
