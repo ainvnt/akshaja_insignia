@@ -14,6 +14,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
@@ -23,6 +24,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -125,7 +127,6 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                             _AuthInputField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
                               labelText: 'Email ID',
                               prefixIcon: Icons.email_outlined,
                               validator: (value) {
@@ -142,9 +143,29 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                             ),
                             const SizedBox(height: 12),
                             _AuthInputField(
+                              controller: _mobileController,
+                              keyboardType: TextInputType.phone,
+                              labelText: 'Mobile Number',
+                              prefixIcon: Icons.phone_android_outlined,
+                              validator: (value) {
+                                final text = (value ?? '').trim();
+                                if (text.isEmpty) {
+                                  return 'Enter mobile number';
+                                }
+                                final digitsOnly = text.replaceAll(
+                                  RegExp(r'[^0-9]'),
+                                  '',
+                                );
+                                if (digitsOnly.length < 10) {
+                                  return 'Enter a valid mobile number';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _AuthInputField(
                               controller: _passwordController,
                               obscureText: true,
-                              autofillHints: const [AutofillHints.newPassword],
                               labelText: 'Password',
                               prefixIcon: Icons.lock_outline,
                               validator: (value) {
@@ -159,7 +180,6 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                             _AuthInputField(
                               controller: _confirmPasswordController,
                               obscureText: true,
-                              autofillHints: const [AutofillHints.newPassword],
                               labelText: 'Confirm Password',
                               prefixIcon: Icons.verified_user_outlined,
                               validator: (value) {
@@ -333,7 +353,6 @@ class _AuthInputField extends StatelessWidget {
     required this.labelText,
     required this.prefixIcon,
     this.keyboardType,
-    this.autofillHints,
     this.obscureText = false,
     this.validator,
   });
@@ -342,7 +361,6 @@ class _AuthInputField extends StatelessWidget {
   final String labelText;
   final IconData prefixIcon;
   final TextInputType? keyboardType;
-  final Iterable<String>? autofillHints;
   final bool obscureText;
   final String? Function(String?)? validator;
 
@@ -351,7 +369,9 @@ class _AuthInputField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      autofillHints: autofillHints,
+      autofillHints: const <String>[],
+      enableSuggestions: false,
+      autocorrect: false,
       obscureText: obscureText,
       validator: validator,
       decoration: InputDecoration(

@@ -176,9 +176,6 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
                             _AuthInputField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
-                              autofillHints: const [
-                                AutofillHints.telephoneNumber,
-                              ],
                               labelText:
                                   'Mobile Number (E.164, e.g. +919876543210)',
                               prefixIcon: Icons.phone_android_outlined,
@@ -385,7 +382,6 @@ class _AuthInputField extends StatelessWidget {
     required this.labelText,
     required this.prefixIcon,
     this.keyboardType,
-    this.autofillHints,
     this.validator,
   });
 
@@ -393,7 +389,6 @@ class _AuthInputField extends StatelessWidget {
   final String labelText;
   final IconData prefixIcon;
   final TextInputType? keyboardType;
-  final Iterable<String>? autofillHints;
   final String? Function(String?)? validator;
 
   @override
@@ -401,7 +396,9 @@ class _AuthInputField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      autofillHints: autofillHints,
+      autofillHints: const <String>[],
+      enableSuggestions: false,
+      autocorrect: false,
       validator: validator,
       decoration: InputDecoration(
         labelText: labelText,
