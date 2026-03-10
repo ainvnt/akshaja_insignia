@@ -8,12 +8,16 @@ class DateFolderTile extends StatelessWidget {
     required this.onOpen,
     required this.onDeleteLocal,
     required this.onDeleteFolder,
+    this.enabled = true,
+    this.menuEnabled = true,
   });
 
   final DateFolderGroup folder;
   final VoidCallback onOpen;
   final VoidCallback onDeleteLocal;
   final VoidCallback onDeleteFolder;
+  final bool enabled;
+  final bool menuEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +45,7 @@ class DateFolderTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             PopupMenuButton<_FolderAction>(
+              enabled: enabled && menuEnabled,
               tooltip: 'Folder actions',
               onSelected: (value) {
                 switch (value) {
@@ -60,12 +65,18 @@ class DateFolderTile extends StatelessWidget {
                   child: Text('Delete folder data'),
                 ),
               ],
-              icon: const Icon(Icons.more_vert_rounded),
+              icon: Icon(
+                Icons.more_vert_rounded,
+                color: (enabled && menuEnabled) ? null : Colors.grey,
+              ),
             ),
-            const Icon(Icons.chevron_right_rounded),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: enabled ? null : Colors.grey,
+            ),
           ],
         ),
-        onTap: onOpen,
+        onTap: enabled ? onOpen : null,
       ),
     );
   }

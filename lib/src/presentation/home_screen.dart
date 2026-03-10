@@ -28,10 +28,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _loading = true;
   bool _isOnline = true;
+  int _pendingUploadCount = 0;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
   int? _cloudTotalPhotos;
   DateTimeRange? _activeSyncRange;
+
+  bool get _lockAllActions => !_isOnline && _pendingUploadCount > 0;
 
   DateTimeRange _currentWeekRange(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
@@ -111,6 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadPhotos() async {
     final records = await widget.repository.getAllPhotos();
+    final pendingCount = records
+        .where((photo) => photo.uploadStatus == UploadStatus.pending)
+        .length;
     final visibleRecords = records
         .where(_isWithinActiveDateRange)
         .toList(growable: false);
@@ -130,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() {
       _photos = sorted;
+      _pendingUploadCount = pendingCount;
     });
   }
 
@@ -626,22 +633,32 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: _deleteAllFoldersData,
+            onPressed: _isOnline ? _deleteAllFoldersData : null,
             icon: const Icon(Icons.delete_sweep_rounded),
-            tooltip: 'Delete all folders',
+            tooltip: _isOnline
+                ? 'Delete all folders'
+                : 'Offline: delete disabled',
           ),
           IconButton(
-            onPressed: _isOnline ? _syncByDateRange : null,
+            onPressed: (_isOnline && !_lockAllActions)
+                ? _syncByDateRange
+                : null,
             icon: const Icon(Icons.date_range_rounded),
             tooltip: _isOnline
-                ? 'Sync cloud by date range'
+                ? (_lockAllActions
+                      ? 'Offline with pending uploads: action disabled'
+                      : 'Sync cloud by date range')
                 : 'Offline: sync disabled',
           ),
           IconButton(
-            onPressed: _isOnline ? _syncPendingPhotos : null,
+            onPressed: (_isOnline && !_lockAllActions)
+                ? _syncPendingPhotos
+                : null,
             icon: const Icon(Icons.sync),
             tooltip: _isOnline
-                ? 'Sync pending uploads'
+                ? (_lockAllActions
+                      ? 'Offline with pending uploads: action disabled'
+                      : 'Sync pending uploads')
                 : 'Offline: sync disabled',
           ),
         ],
@@ -661,7 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _wrapWithOfflineBanner(_buildBody()),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCamera,
+        onPressed: _lockAllActions ? null : _openCamera,
         tooltip: 'Open camera',
         icon: const Icon(Icons.camera_alt_rounded),
         label: const Text('Capture'),
@@ -765,11 +782,20 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           final folder = folders[index - 1];
+          final hasCloudBackedPhoto = folder.photos.any(
+            (photo) => photo.uploadStatus == UploadStatus.uploaded,
+          );
           return DateFolderTile(
             folder: folder,
-            onDeleteLocal: () => _deleteFolderLocalCopies(folder),
-            onDeleteFolder: () => _deleteFolderData(folder),
-            onOpen: () => _openDateFolder(folder),
+            enabled: !_lockAllActions,
+            menuEnabled: !_lockAllActions && hasCloudBackedPhoto,
+            onDeleteLocal: _lockAllActions
+                ? () {}
+                : () => _deleteFolderLocalCopies(folder),
+            onDeleteFolder: _lockAllActions
+                ? () {}
+                : () => _deleteFolderData(folder),
+            onOpen: _lockAllActions ? () {} : () => _openDateFolder(folder),
           );
         },
       ),
@@ -789,6 +815,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return child;
     }
 
+    final lockAllActions = _pendingUploadCount > 0;
+
     return Column(
       children: [
         Container(
@@ -800,13 +828,15 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.orange.withValues(alpha: 0.45)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.wifi_off_rounded, size: 18),
-              SizedBox(width: 8),
+              const Icon(Icons.wifi_off_rounded, size: 18),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Offline mode: refresh and sync are disabled.',
+                  lockAllActions
+                      ? 'Offline with pending uploads: all actions are disabled until upload can resume.'
+                      : 'Offline mode: refresh and sync are disabled.',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
