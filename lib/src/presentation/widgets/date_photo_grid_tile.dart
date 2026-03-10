@@ -31,6 +31,7 @@ class DatePhotoGridTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final localFile = File(photo.filePath);
     final hasLocal = localFile.existsSync();
+    final isUploaded = photo.uploadStatus == UploadStatus.uploaded;
 
     return Material(
       color: Colors.transparent,
@@ -102,6 +103,14 @@ class DatePhotoGridTile extends StatelessWidget {
                           );
                         },
                       ),
+                Positioned(
+                  left: 6,
+                  top: 6,
+                  child: _sourceIndicators(
+                    hasLocal: hasLocal,
+                    isUploaded: isUploaded,
+                  ),
+                ),
                 if (selected)
                   Align(
                     alignment: Alignment.topRight,
@@ -131,5 +140,39 @@ class DatePhotoGridTile extends StatelessWidget {
       return AvifImage.file(localFile, fit: BoxFit.cover);
     }
     return Image.file(localFile, fit: BoxFit.cover);
+  }
+
+  Widget _sourceIndicators({required bool hasLocal, required bool isUploaded}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _indicatorIcon(
+            icon: Icons.phone_android_rounded,
+            active: hasLocal,
+            activeColor: Colors.lightBlueAccent,
+          ),
+          const SizedBox(width: 6),
+          _indicatorIcon(
+            icon: Icons.cloud_rounded,
+            active: isUploaded,
+            activeColor: Colors.lightGreenAccent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _indicatorIcon({
+    required IconData icon,
+    required bool active,
+    required Color activeColor,
+  }) {
+    return Icon(icon, size: 12, color: active ? activeColor : Colors.white70);
   }
 }

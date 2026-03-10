@@ -202,7 +202,17 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
-                          _statusChip(_photo.uploadStatus.value),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _sourceChip(
+                                hasLocalFile: hasLocalFile,
+                                isUploaded:
+                                    _photo.uploadStatus ==
+                                    UploadStatus.uploaded,
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -418,38 +428,38 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
     _zoomController.value = Matrix4.identity();
   }
 
-  Widget _statusChip(String value) {
-    final isUploaded = value.toLowerCase() == 'uploaded';
+  Widget _sourceChip({required bool hasLocalFile, required bool isUploaded}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isUploaded
-            ? Colors.green.withValues(alpha: 0.15)
-            : Colors.orange.withValues(alpha: 0.15),
+        color: Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isUploaded ? Icons.cloud_done_rounded : Icons.cloud_upload_rounded,
-            size: 14,
-            color: isUploaded ? Colors.green.shade800 : Colors.orange.shade900,
+          _indicatorIcon(
+            icon: Icons.phone_android_rounded,
+            active: hasLocalFile,
+            activeColor: Colors.lightBlue.shade700,
           ),
           const SizedBox(width: 6),
-          Text(
-            value.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: isUploaded
-                  ? Colors.green.shade800
-                  : Colors.orange.shade900,
-            ),
+          _indicatorIcon(
+            icon: Icons.cloud_rounded,
+            active: isUploaded,
+            activeColor: Colors.green.shade700,
           ),
         ],
       ),
     );
+  }
+
+  Widget _indicatorIcon({
+    required IconData icon,
+    required bool active,
+    required Color activeColor,
+  }) {
+    return Icon(icon, size: 14, color: active ? activeColor : Colors.black45);
   }
 
   Widget _metaTile(IconData icon, String label, String value) {

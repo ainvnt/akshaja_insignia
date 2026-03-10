@@ -19,8 +19,18 @@ class LocationService {
       throw Exception('Location permission denied.');
     }
 
-    return Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
+    try {
+      // GPS works without internet; this requests a fresh device fix.
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (_) {
+      // If fresh fix fails (e.g., weak signal), use cached device position.
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        return lastKnown;
+      }
+      throw Exception('Unable to determine location offline.');
+    }
   }
 }

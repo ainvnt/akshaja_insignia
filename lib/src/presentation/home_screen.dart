@@ -76,12 +76,24 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _loadPhotos();
       if (_isOnline) {
-        await widget.repository.syncPending();
-        await _loadCloudCount();
+        try {
+          await widget.repository.syncPending();
+          await _loadCloudCount();
+        } catch (error) {
+          if (_isConnectivityError(error)) {
+            _setOfflineMode();
+          } else {
+            rethrow;
+          }
+        }
       } else {
         _cloudTotalPhotos = null;
       }
     } catch (error) {
+      if (_isConnectivityError(error)) {
+        _setOfflineMode();
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -151,6 +163,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _isOnline = false;
       _cloudTotalPhotos = null;
     });
+  }
+
+  bool _isConnectivityError(Object error) {
+    final message = error.toString().toLowerCase();
+    return error is SocketException ||
+        message.contains('socketexception') ||
+        message.contains('failed host lookup') ||
+        message.contains('no address associated with hostname');
   }
 
   String _dateFolderKey(String filePath) {
@@ -276,6 +296,10 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
+      if (_isConnectivityError(error)) {
+        _setOfflineMode();
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -309,6 +333,10 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
     } catch (error) {
+      if (_isConnectivityError(error)) {
+        _setOfflineMode();
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -376,6 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
+      if (_isConnectivityError(error)) {
+        _setOfflineMode();
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -642,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_errorText != null) {
+    if (_errorText != null && _photos.isEmpty) {
       return _buildRefreshContainer(
         ListView(
           physics: const AlwaysScrollableScrollPhysics(),

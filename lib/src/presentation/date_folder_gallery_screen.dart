@@ -6,6 +6,7 @@ import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/date_gallery_actions_bar.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/date_photo_grid_tile.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
+import 'package:akshaja_insignia/src/services/network_service.dart';
 import 'package:flutter/material.dart';
 
 class DateFolderGalleryScreen extends StatefulWidget {
@@ -31,6 +32,9 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
   late List<PhotoRecord> _photos;
   final Set<String> _selectedIds = <String>{};
   StreamSubscription<void>? _changesSubscription;
+  StreamSubscription<bool>? _networkSubscription;
+  final NetworkService _networkService = NetworkService();
+  bool _isOnline = true;
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
@@ -38,14 +42,34 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
   void initState() {
     super.initState();
     _photos = List<PhotoRecord>.from(widget.photos);
+    unawaited(_initializeNetworkState());
+    _networkSubscription = _networkService.onStatusChanged.listen((isOnline) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isOnline = isOnline;
+      });
+    });
     _changesSubscription = widget.repository.changes.listen((_) {
       unawaited(_reloadPhotosForDateFolder());
+    });
+  }
+
+  Future<void> _initializeNetworkState() async {
+    final isOnline = await _networkService.isOnline();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isOnline = isOnline;
     });
   }
 
   @override
   void dispose() {
     unawaited(_changesSubscription?.cancel());
+    unawaited(_networkSubscription?.cancel());
     super.dispose();
   }
 
@@ -246,12 +270,26 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
   @override
   Widget build(BuildContext context) {
     final dateLabel = widget.dateKey.replaceAll('/', '-');
-    final photos = _photos;
+    final photos = _isOnline
+        ? _photos
+        : _photos
+              .where(
+                (photo) =>
+                    File(photo.filePath).existsSync() ||
+                    widget.repository.hasCachedThumbnail(photo.id),
+              )
+              .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(dateLabel),
         actions: [
+          if (!_selectionMode && photos.isNotEmpty)
+            IconButton(
+              tooltip: 'Delete all local',
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: _deleteAllLocal,
+            ),
           if (_selectionMode)
             IconButton(
               tooltip: 'Clear selection',
@@ -272,16 +310,42 @@ class _DateFolderGalleryScreenState extends State<DateFolderGalleryScreen> {
       ),
       body: Column(
         children: [
+          if (!_isOnline)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Offline: showing local and cached thumbnails only.',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (photos.isNotEmpty)
             DateGalleryActionsBar(
               selectionMode: _selectionMode,
               selectedCount: _selectedIds.length,
-              onDeleteAllLocal: _deleteAllLocal,
             ),
           Expanded(
             child: photos.isEmpty
-                ? const Center(
-                    child: Text('No images found for the selected date.'),
+                ? Center(
+                    child: Text(
+                      _isOnline
+                          ? 'No images found for the selected date.'
+                          : 'No local/cached thumbnails available while offline.',
+                    ),
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(12),

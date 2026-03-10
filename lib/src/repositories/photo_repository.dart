@@ -32,6 +32,7 @@ class PhotoRepository {
   final PhotoFileService _photoFileService;
   final void Function()? _onLocalFilesDeleted;
   final Uuid _uuid = const Uuid();
+  final Map<String, Uint8List> _cloudThumbnailCache = <String, Uint8List>{};
   final StreamController<void> _changesController =
       StreamController<void>.broadcast();
 
@@ -130,9 +131,13 @@ class PhotoRepository {
     }
 
     await _pruneEmptyDateFolders(record.filePath);
+    final cacheRemoved = _cloudThumbnailCache.remove(record.id) != null;
 
     _notifyChanges();
-    _notifyLocalFilesDeleted(deletedCount: deleted ? 1 : 0);
+    _notifyLocalFilesDeleted(
+      deletedCount: deleted ? 1 : 0,
+      force: cacheRemoved,
+    );
     return deleted;
   }
 
@@ -154,9 +159,13 @@ class PhotoRepository {
 
     await _pruneEmptyDateFolders(record.filePath);
     await _database.deleteByIds(<String>[record.id]);
+    final cacheRemoved = _cloudThumbnailCache.remove(record.id) != null;
 
     _notifyChanges();
-    _notifyLocalFilesDeleted(deletedCount: deletedLocal ? 1 : 0);
+    _notifyLocalFilesDeleted(
+      deletedCount: deletedLocal ? 1 : 0,
+      force: cacheRemoved,
+    );
     return true;
   }
 
@@ -165,6 +174,7 @@ class PhotoRepository {
     List<PhotoRecord> records,
   ) async {
     var deletedCount = 0;
+    var cacheChanged = false;
 
     final candidateDirs = <String>{};
 
@@ -209,10 +219,12 @@ class PhotoRepository {
         }
       } catch (_) {}
       await _pruneEmptyDateFolders(record.filePath);
+      cacheChanged =
+          _cloudThumbnailCache.remove(record.id) != null || cacheChanged;
     }
 
     _notifyChanges();
-    _notifyLocalFilesDeleted(deletedCount: deletedCount);
+    _notifyLocalFilesDeleted(deletedCount: deletedCount, force: cacheChanged);
     return deletedCount;
   }
 
@@ -239,11 +251,24 @@ class PhotoRepository {
   }
 
   Future<Uint8List?> fetchCloudPhotoBytes(PhotoRecord record) {
-    return _apiClient.downloadPhoto(record);
+    return fetchCloudThumbnailBytes(record);
   }
 
-  Future<Uint8List?> fetchCloudThumbnailBytes(PhotoRecord record) {
-    return _apiClient.downloadPhoto(record);
+  bool hasCachedThumbnail(String photoId) {
+    return _cloudThumbnailCache.containsKey(photoId);
+  }
+
+  Future<Uint8List?> fetchCloudThumbnailBytes(PhotoRecord record) async {
+    final cached = _cloudThumbnailCache[record.id];
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+
+    final bytes = await _apiClient.downloadPhoto(record);
+    if (bytes != null && bytes.isNotEmpty) {
+      _cloudThumbnailCache[record.id] = bytes;
+    }
+    return bytes;
   }
 
   Future<int> syncFromCloudToLocalDateFolders({
@@ -357,8 +382,13 @@ class PhotoRepository {
     }
 
     await _database.clearAll();
+    final cacheHadEntries = _cloudThumbnailCache.isNotEmpty;
+    _cloudThumbnailCache.clear();
     _notifyChanges();
-    _notifyLocalFilesDeleted(deletedCount: deletedLocalCount);
+    _notifyLocalFilesDeleted(
+      deletedCount: deletedLocalCount,
+      force: cacheHadEntries,
+    );
   }
 
   Future<int> deletePhotos(
@@ -382,13 +412,24 @@ class PhotoRepository {
     }
 
     await _database.deleteByIds(records.map((e) => e.id).toList());
+    var cacheChanged = false;
+    for (final record in records) {
+      cacheChanged =
+          _cloudThumbnailCache.remove(record.id) != null || cacheChanged;
+    }
     _notifyChanges();
-    _notifyLocalFilesDeleted(deletedCount: deletedLocalCount);
+    _notifyLocalFilesDeleted(
+      deletedCount: deletedLocalCount,
+      force: cacheChanged,
+    );
     return deletedLocalCount;
   }
 
-  void _notifyLocalFilesDeleted({required int deletedCount}) {
-    if (deletedCount <= 0) {
+  void _notifyLocalFilesDeleted({
+    required int deletedCount,
+    bool force = false,
+  }) {
+    if (!force && deletedCount <= 0) {
       return;
     }
     try {
