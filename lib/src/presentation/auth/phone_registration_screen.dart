@@ -1,3 +1,4 @@
+import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -11,8 +12,11 @@ class PhoneRegistrationScreen extends StatefulWidget {
 
 class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final RegistrationProfileService _profileService =
+      RegistrationProfileService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
@@ -22,6 +26,7 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _phoneController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -41,10 +46,18 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
       phoneNumber: _phoneController.text.trim(),
       forceResendingToken: _forceResendingToken,
       verificationCompleted: (credential) async {
-        await _auth.signInWithCredential(credential);
+        final result = await _auth.signInWithCredential(credential);
+        final user = result.user;
+        if (user != null) {
+          await user.updateDisplayName(_displayNameController.text.trim());
+          await _persistProfile(
+            user,
+            isNewUser: result.additionalUserInfo?.isNewUser ?? false,
+          );
+        }
       },
       verificationFailed: (error) {
-        _showMessage(error.message ?? 'Phone verification failed.');
+        _showMessage(_authErrorMessage(error));
         if (mounted) {
           setState(() {
             _loading = false;
@@ -93,10 +106,18 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
         verificationId: _verificationId!,
         smsCode: _otpController.text.trim(),
       );
-      await _auth.signInWithCredential(credential);
+      final result = await _auth.signInWithCredential(credential);
+      final user = result.user;
+      if (user != null) {
+        await user.updateDisplayName(_displayNameController.text.trim());
+        await _persistProfile(
+          user,
+          isNewUser: result.additionalUserInfo?.isNewUser ?? false,
+        );
+      }
       _showMessage('Phone registration successful.');
     } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Invalid OTP. Please try again.');
+      _showMessage(_authErrorMessage(error));
     } catch (_) {
       _showMessage('Phone registration failed. Please try again.');
     } finally {
@@ -108,6 +129,35 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
     }
   }
 
+  Future<void> _persistProfile(User user, {required bool isNewUser}) async {
+    try {
+      await _profileService.saveUserProfile(
+        user: user,
+        registrationMethod: 'phone',
+        isNewUser: isNewUser,
+        displayName: _displayNameController.text,
+        mobile: _phoneController.text,
+      );
+    } on FirebaseException catch (error) {
+      _showMessage(_profileSaveErrorMessage(error));
+    } catch (_) {
+      _showMessage('Account created, but profile data could not be saved.');
+    }
+  }
+
+  String _profileSaveErrorMessage(FirebaseException error) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Account created, but Firestore denied write. Update Firestore rules to allow users to write their own profile.';
+      case 'unavailable':
+        return 'Account created, but Firestore is currently unavailable. Check internet and try again.';
+      case 'failed-precondition':
+        return 'Account created, but Firestore database is not set up yet. Create Firestore in Firebase Console.';
+      default:
+        return 'Account created, but profile data could not be saved (${error.code}).';
+    }
+  }
+
   void _showMessage(String message) {
     if (!mounted) {
       return;
@@ -115,6 +165,21 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _authErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'operation-not-allowed':
+        return 'Phone sign-in is disabled in Firebase. Enable it in Firebase Console > Authentication > Sign-in method.';
+      case 'invalid-verification-code':
+        return 'Invalid OTP. Please try again.';
+      case 'invalid-phone-number':
+        return 'Invalid phone number format.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
+      default:
+        return error.message ?? 'Phone registration failed.';
+    }
   }
 
   @override
@@ -173,6 +238,23 @@ class _PhoneRegistrationScreenState extends State<PhoneRegistrationScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
+                            _AuthInputField(
+                              controller: _displayNameController,
+                              keyboardType: TextInputType.name,
+                              labelText: 'Full Name',
+                              prefixIcon: Icons.person_outline,
+                              validator: (value) {
+                                final text = (value ?? '').trim();
+                                if (text.isEmpty) {
+                                  return 'Enter full name';
+                                }
+                                if (text.length < 2) {
+                                  return 'Name is too short';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
                             _AuthInputField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,

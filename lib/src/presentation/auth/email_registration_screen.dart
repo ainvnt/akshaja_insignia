@@ -1,3 +1,4 @@
+import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -11,8 +12,11 @@ class EmailRegistrationScreen extends StatefulWidget {
 
 class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final RegistrationProfileService _profileService =
+      RegistrationProfileService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -23,6 +27,7 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
     _passwordController.dispose();
@@ -41,13 +46,18 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     });
 
     try {
-      await _auth.createUserWithEmailAndPassword(
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      final user = credential.user;
+      if (user != null) {
+        await user.updateDisplayName(_displayNameController.text.trim());
+        await _persistProfile(user, isNewUser: true);
+      }
       _showMessage('Email registration successful.');
     } on FirebaseAuthException catch (error) {
-      _showMessage(error.message ?? 'Email registration failed.');
+      _showMessage(_authErrorMessage(error));
     } catch (_) {
       _showMessage('Email registration failed. Please try again.');
     } finally {
@@ -59,6 +69,35 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     }
   }
 
+  Future<void> _persistProfile(User user, {required bool isNewUser}) async {
+    try {
+      await _profileService.saveUserProfile(
+        user: user,
+        registrationMethod: 'email',
+        isNewUser: isNewUser,
+        displayName: _displayNameController.text,
+        mobile: _mobileController.text,
+      );
+    } on FirebaseException catch (error) {
+      _showMessage(_profileSaveErrorMessage(error));
+    } catch (_) {
+      _showMessage('Account created, but profile data could not be saved.');
+    }
+  }
+
+  String _profileSaveErrorMessage(FirebaseException error) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Account created, but Firestore denied write. Update Firestore rules to allow users to write their own profile.';
+      case 'unavailable':
+        return 'Account created, but Firestore is currently unavailable. Check internet and try again.';
+      case 'failed-precondition':
+        return 'Account created, but Firestore database is not set up yet. Create Firestore in Firebase Console.';
+      default:
+        return 'Account created, but profile data could not be saved (${error.code}).';
+    }
+  }
+
   void _showMessage(String message) {
     if (!mounted) {
       return;
@@ -66,6 +105,21 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _authErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'operation-not-allowed':
+        return 'Email/password sign-in is disabled in Firebase. Enable it in Firebase Console > Authentication > Sign-in method.';
+      case 'email-already-in-use':
+        return 'This email is already registered. Please sign in instead.';
+      case 'invalid-email':
+        return 'The email address is invalid.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      default:
+        return error.message ?? 'Email registration failed.';
+    }
   }
 
   @override
@@ -124,6 +178,23 @@ class _EmailRegistrationScreenState extends State<EmailRegistrationScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
+                            _AuthInputField(
+                              controller: _displayNameController,
+                              keyboardType: TextInputType.name,
+                              labelText: 'Full Name',
+                              prefixIcon: Icons.person_outline,
+                              validator: (value) {
+                                final text = (value ?? '').trim();
+                                if (text.isEmpty) {
+                                  return 'Enter full name';
+                                }
+                                if (text.length < 2) {
+                                  return 'Name is too short';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
                             _AuthInputField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
