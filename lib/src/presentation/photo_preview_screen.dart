@@ -57,9 +57,9 @@ class _PhotoPreviewScreenState extends State<PhotoPreviewScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save photo: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(' Failed to save photo: $error')));
       setState(() {
         _saving = false;
       });
