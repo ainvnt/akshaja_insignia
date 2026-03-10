@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  final firebaseEnabled =
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  if (firebaseEnabled) {
     await Firebase.initializeApp();
   }
 
@@ -19,13 +22,18 @@ Future<void> main() async {
   );
   await repository.initialize();
 
-  runApp(MyApp(repository: repository));
+  runApp(MyApp(repository: repository, firebaseEnabled: firebaseEnabled));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, required this.repository});
+  const MyApp({
+    super.key,
+    required this.repository,
+    required this.firebaseEnabled,
+  });
 
   final PhotoRepository repository;
+  final bool firebaseEnabled;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -40,6 +48,9 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return PhotoApp(repository: widget.repository);
+    return PhotoApp(
+      repository: widget.repository,
+      firebaseAuthEnabled: widget.firebaseEnabled,
+    );
   }
 }
