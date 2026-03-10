@@ -1,9 +1,15 @@
 import 'package:akshaja_insignia/src/app.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await Firebase.initializeApp();
+  }
 
   final repository = PhotoRepository(
     onLocalFilesDeleted: () {

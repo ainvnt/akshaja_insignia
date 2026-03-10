@@ -46,3 +46,6 @@ app.*.map.json
 
 # Release signing keystore (explicit project file)
 /akshaja-insignia-key.keystore
+
+# Firebase Android config (local/project secret)
+/android/app/google-services.json

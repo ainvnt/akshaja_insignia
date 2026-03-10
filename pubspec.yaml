@@ -47,6 +47,7 @@ dependencies:
   uuid: ^4.5.1
   flutter_avif: ^3.1.0
   crypto: ^3.0.6
+  firebase_core: ^4.5.0
 
 dev_dependencies:
   flutter_test:
