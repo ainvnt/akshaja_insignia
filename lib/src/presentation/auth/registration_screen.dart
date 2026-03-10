@@ -1,5 +1,5 @@
 import 'package:akshaja_insignia/src/presentation/auth/email_registration_screen.dart';
-import 'package:akshaja_insignia/src/presentation/auth/phone_registration_screen.dart';
+// import 'package:akshaja_insignia/src/presentation/auth/phone_registration_screen.dart';
 import 'package:akshaja_insignia/src/presentation/auth/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -39,13 +39,14 @@ class RegistrationScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      onPhoneTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const PhoneRegistrationScreen(),
-                          ),
-                        );
-                      },
+                      // Uncomment to re-enable Mobile OTP entry point.
+                      // onPhoneTap: () {
+                      //   Navigator.of(context).push(
+                      //     MaterialPageRoute<void>(
+                      //       builder: (_) => const PhoneRegistrationScreen(),
+                      //     ),
+                      //   );
+                      // },
                       onSignInTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -101,20 +102,20 @@ class _TopBrandCard extends StatelessWidget {
         children: [
           Positioned(
             top: -46,
-            left: -30,
+            left: -44,
             child: _ShapeBlob(
               width: 180,
               height: 130,
-              color: Colors.white.withValues(alpha: 0.14),
+              color: Colors.white.withValues(alpha: 0.1),
             ),
           ),
           Positioned(
-            bottom: 20,
-            right: -32,
+            bottom: -36,
+            right: -54,
             child: _ShapeBlob(
-              width: 160,
-              height: 118,
-              color: Colors.white.withValues(alpha: 0.12),
+              width: 190,
+              height: 140,
+              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
           Padding(
@@ -167,12 +168,12 @@ class _TopBrandCard extends StatelessWidget {
 class _ChoicePanel extends StatelessWidget {
   const _ChoicePanel({
     required this.onEmailTap,
-    required this.onPhoneTap,
+    // required this.onPhoneTap,
     required this.onSignInTap,
   });
 
   final VoidCallback onEmailTap;
-  final VoidCallback onPhoneTap;
+  // final VoidCallback onPhoneTap;
   final VoidCallback onSignInTap;
 
   @override
@@ -211,13 +212,14 @@ class _ChoicePanel extends StatelessWidget {
             onTap: onEmailTap,
             outlined: true,
           ),
-          const SizedBox(height: 10),
-          _ActionButton(
-            icon: Icons.sms_outlined,
-            label: 'Continue with Mobile OTP',
-            onTap: onPhoneTap,
-            outlined: true,
-          ),
+          // Uncomment to show Mobile OTP option again.
+          // const SizedBox(height: 10),
+          // _ActionButton(
+          //   icon: Icons.sms_outlined,
+          //   label: 'Continue with Mobile OTP',
+          //   onTap: onPhoneTap,
+          //   outlined: true,
+          // ),
           const SizedBox(height: 10),
           _ActionButton(
             icon: Icons.login_rounded,
@@ -229,7 +231,7 @@ class _ChoicePanel extends StatelessWidget {
           Container(height: 1, color: const Color(0xFFE1E4F3)),
           const SizedBox(height: 14),
           const Text(
-            'Your information is encrypted and protected with Firebase Authentication.',
+            'Your information is encrypted and protected.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFF6B6B7E)),
           ),

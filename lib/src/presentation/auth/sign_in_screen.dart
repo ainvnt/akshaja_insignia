@@ -2,6 +2,7 @@ import 'package:akshaja_insignia/src/services/auth_ui_state_service.dart';
 import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -61,6 +62,53 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
+        scopes: const ['email'],
+      ).signIn();
+
+      if (googleUser == null) {
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+      if (user != null) {
+        await _profileService.saveUserProfile(
+          user: user,
+          registrationMethod: 'google',
+          isNewUser: false,
+        );
+      }
+
+      await _handleSignInSuccess();
+    } on FirebaseAuthException catch (error) {
+      _showMessage(_authErrorMessage(error));
+    } on FirebaseException catch (error) {
+      _showMessage(error.message ?? 'Google sign in failed.');
+    } catch (_) {
+      _showMessage('Google sign in failed. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _persistLastLogin(User user) async {
     try {
       await _profileService.saveUserProfile(
@@ -96,6 +144,8 @@ class _SignInScreenState extends State<SignInScreen> {
         return 'Email/password sign-in is disabled in Firebase.';
       case 'too-many-requests':
         return 'Too many attempts. Please wait and try again.';
+      case 'account-exists-with-different-credential':
+        return 'This email already exists with a different sign-in method.';
       default:
         return error.message ?? 'Sign in failed.';
     }
@@ -217,6 +267,43 @@ class _SignInScreenState extends State<SignInScreen> {
                                       ),
                                     )
                                   : const Text('Sign In'),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: theme.colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 10),
+                                  child: Text('OR'),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: theme.colorScheme.outlineVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0xFFD3D6E6),
+                                ),
+                                foregroundColor: const Color(0xFF2A2A39),
+                              ),
+                              onPressed: _loading ? null : _signInWithGoogle,
+                              icon: const Icon(Icons.g_mobiledata_rounded),
+                              label: const Text('Continue with Google'),
                             ),
                           ],
                         ),

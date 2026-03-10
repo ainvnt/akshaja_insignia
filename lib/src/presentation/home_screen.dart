@@ -5,6 +5,7 @@ import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
 import 'package:akshaja_insignia/src/presentation/date_folder_gallery_screen.dart';
 import 'package:akshaja_insignia/src/presentation/models/date_folder_group.dart';
+import 'package:akshaja_insignia/src/presentation/profile_screen.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/date_folder_tile.dart';
 import 'package:akshaja_insignia/src/presentation/widgets/home_summary_card.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
@@ -874,6 +875,19 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Akshaja Insignia'),
         centerTitle: true,
+        leading: IconButton(
+          style: IconButton.styleFrom(
+            foregroundColor: tonedIconColor,
+            disabledForegroundColor: tonedDisabledIconColor,
+          ),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+            );
+          },
+          icon: const Icon(Icons.account_circle_outlined),
+          tooltip: 'Profile',
+        ),
         actions: [
           IconButton(
             style: IconButton.styleFrom(
