@@ -29,12 +29,23 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   bool _isOnline = true;
   int _pendingUploadCount = 0;
+  bool _autoRefreshEnabled = false;
+  bool _autoRefreshInProgress = false;
+  Duration _autoRefreshInterval = const Duration(hours: 1);
+  Timer? _autoRefreshTimer;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
   int? _cloudTotalPhotos;
   DateTimeRange? _activeSyncRange;
 
   bool get _lockAllActions => !_isOnline && _pendingUploadCount > 0;
+
+  static const List<Duration> _autoRefreshOptions = <Duration>[
+    Duration(minutes: 30),
+    Duration(hours: 1),
+    Duration(hours: 3),
+    Duration(hours: 5),
+  ];
 
   DateTimeRange _currentWeekRange(DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
@@ -73,6 +84,171 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isOnline = isOnline;
     });
+  }
+
+  void _restartAutoRefreshTimer() {
+    _autoRefreshTimer?.cancel();
+    if (!_autoRefreshEnabled) {
+      return;
+    }
+
+    _autoRefreshTimer = Timer.periodic(_autoRefreshInterval, (_) {
+      unawaited(_runAutoRefreshTick());
+    });
+  }
+
+  void _setAutoRefreshEnabled(bool enabled) {
+    setState(() {
+      _autoRefreshEnabled = enabled;
+    });
+    _restartAutoRefreshTimer();
+  }
+
+  Future<void> _runAutoRefreshTick() async {
+    if (!mounted || !_autoRefreshEnabled) {
+      return;
+    }
+    if (_autoRefreshInProgress || !_isOnline || _lockAllActions) {
+      return;
+    }
+
+    _autoRefreshInProgress = true;
+    try {
+      await widget.repository.syncPending();
+      final range = _activeSyncRange;
+      await widget.repository.syncFromCloudToLocalDateFolders(
+        startDate: range?.start,
+        endDate: range?.end,
+        clearOnEmpty: false,
+      );
+      await Future.wait<void>(<Future<void>>[_loadPhotos(), _loadCloudCount()]);
+    } catch (error) {
+      if (_isConnectivityError(error)) {
+        _setOfflineMode();
+      }
+    } finally {
+      _autoRefreshInProgress = false;
+    }
+  }
+
+  Future<void> _showAutoRefreshSettings() async {
+    if (!mounted) {
+      return;
+    }
+
+    var enabled = _autoRefreshEnabled;
+    var selectedInterval = _autoRefreshInterval;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile.adaptive(
+                      value: enabled,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Auto refresh'),
+                      subtitle: const Text(
+                        'Automatically sync photos from cloud',
+                      ),
+                      onChanged: (value) {
+                        setSheetState(() {
+                          enabled = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Refresh interval'),
+                    const SizedBox(height: 6),
+                    for (final option in _autoRefreshOptions)
+                      RadioListTile<Duration>(
+                        value: option,
+                        groupValue: selectedInterval,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(_autoRefreshLabel(option)),
+                        onChanged: enabled
+                            ? (value) {
+                                if (value == null) {
+                                  return;
+                                }
+                                setSheetState(() {
+                                  selectedInterval = value;
+                                });
+                              }
+                            : null,
+                      ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _autoRefreshEnabled = enabled;
+      _autoRefreshInterval = selectedInterval;
+    });
+    _restartAutoRefreshTimer();
+  }
+
+  String _autoRefreshLabel(Duration duration) {
+    if (duration.inMinutes == 30) {
+      return 'Every 30 minutes';
+    }
+    if (duration.inHours == 1) {
+      return 'Every 1 hour';
+    }
+    return 'Every ${duration.inHours} hours';
+  }
+
+  Widget _buildInlineAutoRefreshToggle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: _showAutoRefreshSettings,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Text(
+              'Auto',
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Switch.adaptive(
+          value: _autoRefreshEnabled,
+          onChanged: _setAutoRefreshEnabled,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ],
+    );
   }
 
   Future<void> _initializeScreen() async {
@@ -651,6 +827,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     unawaited(_changesSubscription?.cancel());
     unawaited(_networkSubscription?.cancel());
+    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -769,6 +946,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pendingPhotos: pendingCount,
               uploadedLabel: uploadedLabel,
               infoText: _dateRangeLabel(),
+              infoTrailing: _buildInlineAutoRefreshToggle(),
               rangePhotos: _photos.length,
             ),
             SizedBox(height: 20),
@@ -808,6 +986,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pendingPhotos: pendingCount,
               uploadedLabel: uploadedLabel,
               infoText: _dateRangeLabel(),
+              infoTrailing: _buildInlineAutoRefreshToggle(),
               rangePhotos: _photos.length,
             );
           }

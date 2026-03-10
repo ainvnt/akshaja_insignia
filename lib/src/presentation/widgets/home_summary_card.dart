@@ -8,6 +8,7 @@ class HomeSummaryCard extends StatelessWidget {
     this.pendingPhotos,
     this.uploadedLabel = 'Uploaded',
     this.infoText,
+    this.infoTrailing,
     this.rangePhotos,
   });
 
@@ -16,12 +17,19 @@ class HomeSummaryCard extends StatelessWidget {
   final int? pendingPhotos;
   final String uploadedLabel;
   final String? infoText;
+  final Widget? infoTrailing;
   final int? rangePhotos;
 
   @override
   Widget build(BuildContext context) {
     final pending = pendingPhotos ?? (totalPhotos - uploadedPhotos);
     final metrics = <({String label, String value, IconData icon})>[
+      if (rangePhotos != null)
+        (
+          label: 'In Range',
+          value: '$rangePhotos',
+          icon: Icons.filter_alt_rounded,
+        ),
       (
         label: 'Total',
         value: '$totalPhotos',
@@ -33,12 +41,6 @@ class HomeSummaryCard extends StatelessWidget {
         icon: Icons.cloud_done_rounded,
       ),
       (label: 'Pending', value: '$pending', icon: Icons.schedule_rounded),
-      if (rangePhotos != null)
-        (
-          label: 'In Range',
-          value: '$rangePhotos',
-          icon: Icons.filter_alt_rounded,
-        ),
     ];
 
     return Card(
@@ -61,12 +63,22 @@ class HomeSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (infoText != null) ...[
-              Text(
-                infoText!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      infoText!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (infoTrailing != null) ...[
+                    const SizedBox(width: 8),
+                    infoTrailing!,
+                  ],
+                ],
               ),
             ],
             const SizedBox(height: 8),
