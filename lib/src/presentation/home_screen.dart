@@ -857,13 +857,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final tonedIconColor = colorScheme.primary.withValues(alpha: 0.78);
+    final tonedDisabledIconColor = colorScheme.onSurface.withValues(
+      alpha: 0.35,
+    );
+    final blendedPrimary = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.08),
+      colorScheme.surface,
+    );
+    final blendedSecondary = Color.alphaBlend(
+      colorScheme.secondary.withValues(alpha: 0.1),
+      colorScheme.surface,
+    );
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Akshaja Insignia'),
         centerTitle: true,
         actions: [
           IconButton(
+            style: IconButton.styleFrom(
+              foregroundColor: tonedIconColor,
+              disabledForegroundColor: tonedDisabledIconColor,
+            ),
             onPressed: _isOnline ? _deleteAllFoldersData : null,
             icon: const Icon(Icons.delete_sweep_rounded),
             tooltip: _isOnline
@@ -871,6 +887,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'Offline: delete disabled',
           ),
           IconButton(
+            style: IconButton.styleFrom(
+              foregroundColor: tonedIconColor,
+              disabledForegroundColor: tonedDisabledIconColor,
+            ),
             onPressed: (_isOnline && !_lockAllActions)
                 ? _syncByDateRange
                 : null,
@@ -882,6 +902,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'Offline: sync disabled',
           ),
           IconButton(
+            style: IconButton.styleFrom(
+              foregroundColor: tonedIconColor,
+              disabledForegroundColor: tonedDisabledIconColor,
+            ),
             onPressed: (_isOnline && !_lockAllActions)
                 ? _syncPendingPhotos
                 : null,
@@ -899,16 +923,14 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.surface,
-              colorScheme.primary.withValues(alpha: 0.08),
-              colorScheme.secondary.withValues(alpha: 0.1),
-            ],
+            colors: [colorScheme.surface, blendedPrimary, blendedSecondary],
           ),
         ),
         child: _wrapWithOfflineBanner(_buildBody()),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: colorScheme.secondaryContainer,
+        foregroundColor: colorScheme.primary,
         onPressed: _openCamera,
         tooltip: 'Open camera',
         icon: const Icon(Icons.camera_alt_rounded),

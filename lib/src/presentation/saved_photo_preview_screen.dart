@@ -159,20 +159,24 @@ class _SavedPhotoPreviewScreenState extends State<SavedPhotoPreviewScreen> {
         !hasLocalFile && _photo.uploadStatus == UploadStatus.uploaded;
 
     final colorScheme = Theme.of(context).colorScheme;
+    final blendedPrimary = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.08),
+      colorScheme.surface,
+    );
+    final blendedSecondary = Color.alphaBlend(
+      colorScheme.secondary.withValues(alpha: 0.1),
+      colorScheme.surface,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(title: const Text('Photo Details'), centerTitle: true),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.surface,
-              colorScheme.primary.withValues(alpha: 0.08),
-              colorScheme.secondary.withValues(alpha: 0.1),
-            ],
+            colors: [colorScheme.surface, blendedPrimary, blendedSecondary],
           ),
         ),
         child: SafeArea(

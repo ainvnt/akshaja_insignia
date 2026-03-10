@@ -53,8 +53,8 @@ class HomeSummaryCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.16),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.09),
             ],
           ),
         ),
@@ -133,17 +133,29 @@ class _SummaryItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.65),
+        color: Colors.white.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 16),
+          Icon(
+            icon,
+            size: 16,
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.75),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.9),
+            ),
             maxLines: 1,
           ),
           Text(
