@@ -2,6 +2,7 @@ import 'package:akshaja_insignia/src/services/auth_ui_state_service.dart';
 import 'package:akshaja_insignia/src/services/registration_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final RegistrationProfileService _profileService =
       RegistrationProfileService();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: const ['email']);
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
@@ -68,11 +70,11 @@ class _SignInScreenState extends State<SignInScreen> {
     });
 
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        scopes: const ['email'],
-      ).signIn();
+      await _googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
+        _showMessage('Google sign in was cancelled.');
         return;
       }
 
@@ -96,6 +98,8 @@ class _SignInScreenState extends State<SignInScreen> {
       await _handleSignInSuccess();
     } on FirebaseAuthException catch (error) {
       _showMessage(_authErrorMessage(error));
+    } on PlatformException catch (error) {
+      _showMessage(_googlePlatformErrorMessage(error));
     } on FirebaseException catch (error) {
       _showMessage(error.message ?? 'Google sign in failed.');
     } catch (_) {
@@ -149,6 +153,35 @@ class _SignInScreenState extends State<SignInScreen> {
       default:
         return error.message ?? 'Sign in failed.';
     }
+  }
+
+  String _googlePlatformErrorMessage(PlatformException error) {
+    final code = error.code.toLowerCase();
+    final message = (error.message ?? '').toLowerCase();
+
+    if (code.contains('sign_in_canceled') || code.contains('canceled')) {
+      return 'Google sign in was cancelled.';
+    }
+
+    if (code.contains('network_error')) {
+      return 'Network error during Google sign in. Please try again.';
+    }
+
+    if (message.contains('10') ||
+        message.contains('developer_error') ||
+        message.contains('12500')) {
+      return 'Google sign in is not configured correctly for this Android build. Check that Google sign-in is enabled in Firebase and that the correct debug/release SHA fingerprints are registered.';
+    }
+
+    if (message.contains('12501')) {
+      return 'Google sign in was cancelled.';
+    }
+
+    if (message.contains('7') || message.contains('network error')) {
+      return 'Network error during Google sign in. Please try again.';
+    }
+
+    return error.message ?? 'Google sign in failed.';
   }
 
   void _showMessage(String message) {

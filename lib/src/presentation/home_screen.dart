@@ -32,9 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   bool _isOnline = true;
   int _pendingUploadCount = 0;
-  bool _autoRefreshEnabled = false;
+  bool _autoRefreshEnabled = true;
   bool _autoRefreshInProgress = false;
-  Duration _autoRefreshInterval = const Duration(hours: 1);
+  Duration _autoRefreshInterval = const Duration(minutes: 5);
   Timer? _autoRefreshTimer;
   String? _errorText;
   List<PhotoRecord> _photos = const <PhotoRecord>[];
@@ -44,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _lockAllActions => !_isOnline && _pendingUploadCount > 0;
 
   static const List<Duration> _autoRefreshOptions = <Duration>[
+    Duration(minutes: 5),
     Duration(minutes: 30),
     Duration(hours: 1),
     Duration(hours: 3),
@@ -65,11 +66,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _autoRefreshEnabled = AutoRefreshMemoryService.enabled;
     _autoRefreshInterval = AutoRefreshMemoryService.interval;
+    final isFromLogin = AuthUiStateService.consumeLoginSuccessForHome();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
-      if (AuthUiStateService.consumeLoginSuccessForHome()) {
+      if (isFromLogin) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login successful. Welcome back!')),
         );
@@ -88,7 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _changesSubscription = widget.repository.changes.listen((_) {
       unawaited(_loadPhotos());
     });
-    _restartAutoRefreshTimer();
+    if (isFromLogin) {
+      _restartAutoRefreshTimer();
+    }
     unawaited(_initializeScreen());
   }
 
@@ -239,6 +243,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _autoRefreshLabel(Duration duration) {
+    if (duration.inMinutes == 5) {
+      return 'Every 5 minutes';
+    }
     if (duration.inMinutes == 30) {
       return 'Every 30 minutes';
     }
