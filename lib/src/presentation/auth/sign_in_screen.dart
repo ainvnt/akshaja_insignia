@@ -135,6 +135,126 @@ class _SignInScreenState extends State<SignInScreen> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  bool _isValidEmail(String value) {
+    final email = value.trim();
+    return email.isNotEmpty && email.contains('@') && email.contains('.');
+  }
+
+  Future<void> _showPasswordResetDialog() async {
+    var email = _emailController.text.trim();
+    var sending = false;
+    String? errorText;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Reset password'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter your email address and we will send you a password reset link.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: email,
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: !sending,
+                    autofillHints: const <String>[AutofillHints.email],
+                    onChanged: (value) {
+                      email = value;
+                      if (errorText != null) {
+                        setDialogState(() {
+                          errorText = null;
+                        });
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Email ID',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: const Color(0xFFF7F8FD),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: const BorderSide(color: Color(0xFFD3D6E6)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: const BorderSide(color: Color(0xFFD3D6E6)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: sending
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          final trimmedEmail = email.trim();
+                          if (!_isValidEmail(trimmedEmail)) {
+                            setDialogState(() {
+                              errorText = 'Enter a valid email id';
+                            });
+                            return;
+                          }
+
+                          setDialogState(() {
+                            sending = true;
+                            errorText = null;
+                          });
+
+                          try {
+                            await _auth.sendPasswordResetEmail(
+                              email: trimmedEmail,
+                            );
+                            if (!mounted) {
+                              return;
+                            }
+                            Navigator.of(dialogContext).pop();
+                            _showMessage(
+                              'Password reset email sent. Check your inbox.',
+                            );
+                          } on FirebaseAuthException catch (error) {
+                            setDialogState(() {
+                              sending = false;
+                              errorText = _passwordResetErrorMessage(error);
+                            });
+                          } catch (_) {
+                            setDialogState(() {
+                              sending = false;
+                              errorText =
+                                  'Could not send reset email. Please try again.';
+                            });
+                          }
+                        },
+                  child: sending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Send link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   String _authErrorMessage(FirebaseAuthException error) {
     switch (error.code) {
       case 'user-not-found':
@@ -152,6 +272,21 @@ class _SignInScreenState extends State<SignInScreen> {
         return 'This email already exists with a different sign-in method.';
       default:
         return error.message ?? 'Sign in failed.';
+    }
+  }
+
+  String _passwordResetErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'The email address is invalid.';
+      case 'user-not-found':
+        return 'No user found with this email.';
+      case 'missing-email':
+        return 'Enter your email address.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
+      default:
+        return error.message ?? 'Could not send reset email.';
     }
   }
 
@@ -278,6 +413,16 @@ class _SignInScreenState extends State<SignInScreen> {
                                 }
                                 return null;
                               },
+                            ),
+                            const SizedBox(height: 6),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _loading
+                                    ? null
+                                    : _showPasswordResetDialog,
+                                child: const Text('Forgot password?'),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             FilledButton(

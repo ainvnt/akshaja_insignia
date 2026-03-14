@@ -12,6 +12,7 @@ import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:akshaja_insignia/src/services/auto_refresh_memory_service.dart';
 import 'package:akshaja_insignia/src/services/auth_ui_state_service.dart';
 import 'package:akshaja_insignia/src/services/network_service.dart';
+import 'package:akshaja_insignia/src/services/update_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -32,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   bool _isOnline = true;
   int _pendingUploadCount = 0;
+  bool _updateAvailable = false;
+  String? _updateMessage;
+  bool _updateDismissed = false;
   bool _autoRefreshEnabled = true;
   bool _autoRefreshInProgress = false;
   Duration _autoRefreshInterval = const Duration(minutes: 5);
@@ -94,6 +98,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _restartAutoRefreshTimer();
     }
     unawaited(_initializeScreen());
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await UpdateService.checkForUpdate();
+    if (!mounted || !info.available) return;
+    setState(() {
+      _updateAvailable = true;
+      _updateMessage = info.message;
+    });
   }
 
   Future<void> _initializeNetworkState() async {
@@ -283,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeScreen() async {
+    unawaited(_checkForUpdate());
     try {
       await _loadPhotos();
       if (_isOnline) {
@@ -956,6 +970,78 @@ class _HomeScreenState extends State<HomeScreen> {
         tooltip: 'Open camera',
         icon: const Icon(Icons.camera_alt_rounded),
         label: const Text('Capture'),
+      ),
+      bottomNavigationBar: (_updateAvailable && !_updateDismissed)
+          ? _buildUpdateBanner()
+          : null,
+    );
+  }
+
+  Widget _buildUpdateBanner() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        decoration: BoxDecoration(
+          color: colorScheme.primary,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.30),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.system_update_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Update available',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (_updateMessage != null && _updateMessage!.isNotEmpty)
+                    Text(
+                      _updateMessage!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () => setState(() => _updateDismissed = true),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+              tooltip: 'Dismiss',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
       ),
     );
   }

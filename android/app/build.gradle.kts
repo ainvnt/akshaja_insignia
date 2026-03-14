@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 val appMinSdk =
-    providers.gradleProperty("app.minSdk").map(String::toInt).getOrElse(21).coerceAtLeast(23)
+    providers.gradleProperty("app.minSdk").map(String::toInt).getOrElse(21).coerceAtLeast(21)
 
 android {
     namespace = "com.ainvnt.akshajaInsignia"
@@ -69,6 +69,18 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+dependencies {
+    constraints {
+        implementation("com.google.firebase:firebase-auth:22.3.1")
+    }
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        force("com.google.firebase:firebase-auth:22.3.1")
     }
 }
 
