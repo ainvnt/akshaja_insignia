@@ -1,5 +1,4 @@
 import 'package:akshaja_insignia/src/presentation/auth/registration_screen.dart';
-import 'package:akshaja_insignia/src/presentation/home_screen.dart';
 import 'package:akshaja_insignia/src/presentation/society_home_screen.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -71,7 +70,7 @@ class PhotoApp extends StatelessWidget {
 
   Widget _buildHome() {
     if (!firebaseAuthEnabled) {
-      return const SocietyHomeScreen();
+      return SocietyHomeScreen(repository: repository);
     }
 
     return StreamBuilder<User?>(
@@ -85,7 +84,7 @@ class PhotoApp extends StatelessWidget {
         if (snapshot.data == null) {
           return const RegistrationScreen();
         }
-        return const SocietyHomeScreen();
+        return SocietyHomeScreen(repository: repository);
       },
     );
   }
