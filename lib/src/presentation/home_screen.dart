@@ -891,6 +891,7 @@ class _HomeScreenState extends State<HomeScreen> {
       colorScheme.secondary.withValues(alpha: 0.1),
       colorScheme.surface,
     );
+    final canReturnHome = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
@@ -901,15 +902,36 @@ class _HomeScreenState extends State<HomeScreen> {
             foregroundColor: tonedIconColor,
             disabledForegroundColor: tonedDisabledIconColor,
           ),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-            );
-          },
-          icon: const Icon(Icons.account_circle_outlined),
-          tooltip: 'Profile',
+          onPressed: canReturnHome
+              ? () => Navigator.of(context).pop()
+              : () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ProfileScreen(),
+                    ),
+                  );
+                },
+          icon: Icon(
+            canReturnHome
+                ? Icons.arrow_back_rounded
+                : Icons.account_circle_outlined,
+          ),
+          tooltip: canReturnHome ? 'Back to home' : 'Profile',
         ),
         actions: [
+          IconButton(
+            style: IconButton.styleFrom(
+              foregroundColor: tonedIconColor,
+              disabledForegroundColor: tonedDisabledIconColor,
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+              );
+            },
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Profile',
+          ),
           IconButton(
             style: IconButton.styleFrom(
               foregroundColor: tonedIconColor,

@@ -8,10 +8,7 @@ import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:flutter/material.dart';
 
 class SocietyHomeScreen extends StatefulWidget {
-  const SocietyHomeScreen({
-    super.key,
-    required this.repository,
-  });
+  const SocietyHomeScreen({super.key, required this.repository});
 
   final PhotoRepository repository;
 
@@ -80,13 +77,26 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
       icon: Icons.apartment_rounded,
       accent: Color(0xFFF0A144),
       headline: 'Everything your block needs, close at hand',
-      subtitle: 'Directory, amenities, and society updates are ready to browse.',
+      subtitle:
+          'Directory, amenities, and society updates are ready to browse.',
       statValue: '12',
       statLabel: 'Fresh updates',
       quickActions: [
-        _HomeActionData(label: 'Amenities', icon: Icons.pool_outlined, square: true),
-        _HomeActionData(label: 'Directory', icon: Icons.contact_page_outlined, square: true),
-        _HomeActionData(label: 'Security', icon: Icons.shield_outlined, square: true),
+        _HomeActionData(
+          label: 'Amenities',
+          icon: Icons.pool_outlined,
+          square: true,
+        ),
+        _HomeActionData(
+          label: 'Directory',
+          icon: Icons.contact_page_outlined,
+          square: true,
+        ),
+        _HomeActionData(
+          label: 'Security',
+          icon: Icons.shield_outlined,
+          square: true,
+        ),
       ],
       promoText: 'Discover what is active in your tower',
       promoKind: _PromoKind.city,
@@ -122,7 +132,11 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
   ];
 
   static const List<_ActionRailData> _actionRailItems = [
-    _ActionRailData('Home Cleaning', Icons.cleaning_services_rounded, featured: true),
+    _ActionRailData(
+      'Home Cleaning',
+      Icons.cleaning_services_rounded,
+      featured: true,
+    ),
     _ActionRailData('Directory', Icons.contact_page_outlined),
     _ActionRailData('Security', Icons.local_police_outlined),
     _ActionRailData('Notices', Icons.notifications_active_outlined),
@@ -173,28 +187,47 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
     _ForumPostData(
       author: 'Block A Residents',
       title: 'Weekend farmers market near clubhouse',
-      body: 'Fresh produce stalls and local bakers will be available from 8 AM to 1 PM this Saturday.',
+      body:
+          'Fresh produce stalls and local bakers will be available from 8 AM to 1 PM this Saturday.',
       replies: '18 replies',
     ),
     _ForumPostData(
       author: 'Security Desk',
       title: 'Late night delivery guidelines',
-      body: 'Please pre-approve deliveries after 10 PM so the gate team can clear them faster.',
+      body:
+          'Please pre-approve deliveries after 10 PM so the gate team can clear them faster.',
       replies: '7 replies',
     ),
     _ForumPostData(
       author: 'Tower 2 Committee',
       title: 'Looking for badminton partners',
-      body: 'Residents interested in weekday evening games can reply to coordinate a regular slot.',
+      body:
+          'Residents interested in weekday evening games can reply to coordinate a regular slot.',
       replies: '24 replies',
     ),
   ];
 
   static const List<_ServiceItemData> _serviceItems = [
-    _ServiceItemData('Home Cleaning', Icons.cleaning_services_outlined, 'Starts at Rs 499'),
-    _ServiceItemData('Electrician', Icons.electrical_services_outlined, 'Available in 20 min'),
-    _ServiceItemData('Plumbing', Icons.plumbing_outlined, 'Verified professionals'),
-    _ServiceItemData('Appliance Repair', Icons.kitchen_outlined, 'Doorstep support'),
+    _ServiceItemData(
+      'Home Cleaning',
+      Icons.cleaning_services_outlined,
+      'Starts at Rs 499',
+    ),
+    _ServiceItemData(
+      'Electrician',
+      Icons.electrical_services_outlined,
+      'Available in 20 min',
+    ),
+    _ServiceItemData(
+      'Plumbing',
+      Icons.plumbing_outlined,
+      'Verified professionals',
+    ),
+    _ServiceItemData(
+      'Appliance Repair',
+      Icons.kitchen_outlined,
+      'Doorstep support',
+    ),
   ];
 
   static const List<_HomeListingData> _homeListings = [
@@ -337,10 +370,7 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
               },
             ),
             const SizedBox(height: 18),
-            _ContextBoard(
-              section: section,
-              onActionTap: _handleSectionAction,
-            ),
+            _ContextBoard(section: section, onActionTap: _handleSectionAction),
             const SizedBox(height: 18),
             const _InfoStrip(),
             const SizedBox(height: 18),
@@ -358,10 +388,7 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             const SizedBox(height: 18),
             _PromoGallery(cards: _promotions),
             const SizedBox(height: 18),
-            _NoticeSection(
-              notices: _notices,
-              onOpenAll: _openNotices,
-            ),
+            _NoticeSection(notices: _notices, onOpenAll: _openNotices),
           ],
         );
       case 1:
@@ -372,7 +399,8 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             const SizedBox(height: 18),
             const _PageBanner(
               title: 'Society',
-              subtitle: 'Community essentials, updates, and management access in one place.',
+              subtitle:
+                  'Community essentials, updates, and management access in one place.',
               colors: [Color(0xFF1F3A49), Color(0xFF3D6882)],
             ),
             const SizedBox(height: 18),
@@ -384,10 +412,7 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
               child: _SocietyFeatureGrid(),
             ),
             const SizedBox(height: 18),
-            _NoticeSection(
-              notices: _notices,
-              onOpenAll: _openNotices,
-            ),
+            _NoticeSection(notices: _notices, onOpenAll: _openNotices),
           ],
         );
       case 2:
@@ -398,7 +423,8 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             const SizedBox(height: 18),
             const _PageBanner(
               title: 'Forum',
-              subtitle: 'Resident conversations, coordination, and quick community threads.',
+              subtitle:
+                  'Resident conversations, coordination, and quick community threads.',
               colors: [Color(0xFF32244F), Color(0xFF6756A4)],
             ),
             const SizedBox(height: 18),
@@ -417,7 +443,8 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             const SizedBox(height: 18),
             const _PageBanner(
               title: 'Services',
-              subtitle: 'Book trusted home services with faster resident turnaround times.',
+              subtitle:
+                  'Book trusted home services with faster resident turnaround times.',
               colors: [Color(0xFF4E321D), Color(0xFFB46A34)],
             ),
             const SizedBox(height: 18),
@@ -438,7 +465,8 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             const SizedBox(height: 18),
             const _PageBanner(
               title: 'Homes',
-              subtitle: 'Explore listings, rentals, and owner-posted opportunities in your community.',
+              subtitle:
+                  'Explore listings, rentals, and owner-posted opportunities in your community.',
               colors: [Color(0xFF1E4C3E), Color(0xFF4F8C72)],
             ),
             const SizedBox(height: 18),
@@ -529,7 +557,10 @@ class _TopHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.person_outline_rounded, color: Color(0xFFC6C1B8)),
+          child: const Icon(
+            Icons.person_outline_rounded,
+            color: Color(0xFFC6C1B8),
+          ),
         ),
         const SizedBox(width: 12),
         const Text(
@@ -541,11 +572,18 @@ class _TopHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        const Icon(Icons.keyboard_arrow_down_rounded, color: _SocietyHomeScreenState._textPrimary),
+        const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: _SocietyHomeScreenState._textPrimary,
+        ),
         const SizedBox(width: 12),
         const Expanded(child: _LocationPill()),
         const SizedBox(width: 10),
-        const Icon(Icons.search_rounded, size: 34, color: _SocietyHomeScreenState._textPrimary),
+        const Icon(
+          Icons.search_rounded,
+          size: 34,
+          color: _SocietyHomeScreenState._textPrimary,
+        ),
         const SizedBox(width: 10),
         Container(
           width: 42,
@@ -597,7 +635,11 @@ class _LocationPill extends StatelessWidget {
           CircleAvatar(
             radius: 15,
             backgroundColor: Color(0xFFE8F0FF),
-            child: Icon(Icons.location_on_rounded, size: 22, color: Color(0xFF286EEB)),
+            child: Icon(
+              Icons.location_on_rounded,
+              size: 22,
+              color: Color(0xFF286EEB),
+            ),
           ),
           SizedBox(width: 8),
           Expanded(
@@ -687,10 +729,7 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               const Expanded(
-                child: _MetricTile(
-                  title: '27°',
-                  subtitle: 'Cloudy evening',
-                ),
+                child: _MetricTile(title: '27°', subtitle: 'Cloudy evening'),
               ),
             ],
           ),
@@ -786,10 +825,7 @@ class _SectionSwitcher extends StatelessWidget {
 }
 
 class _ContextBoard extends StatelessWidget {
-  const _ContextBoard({
-    required this.section,
-    required this.onActionTap,
-  });
+  const _ContextBoard({required this.section, required this.onActionTap});
 
   final _HomeSectionData section;
   final ValueChanged<_HomeActionData> onActionTap;
@@ -847,10 +883,7 @@ class _ContextBoard extends StatelessWidget {
                 .toList(growable: false),
           ),
           const SizedBox(height: 16),
-          _PromoBanner(
-            text: section.promoText,
-            kind: section.promoKind,
-          ),
+          _PromoBanner(text: section.promoText, kind: section.promoKind),
         ],
       ),
     );
@@ -929,7 +962,10 @@ class _SectionCard extends StatelessWidget {
               if (badge != null) ...[
                 const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE74747),
                     borderRadius: BorderRadius.circular(12),
@@ -981,10 +1017,7 @@ class _ActionRail extends StatelessWidget {
 }
 
 class _IncidentSection extends StatelessWidget {
-  const _IncidentSection({
-    required this.photos,
-    required this.onOpen,
-  });
+  const _IncidentSection({required this.photos, required this.onOpen});
 
   final List<PhotoRecord> photos;
   final VoidCallback onOpen;
@@ -999,7 +1032,9 @@ class _IncidentSection extends StatelessWidget {
         .length;
     final latestPhoto = photos.isEmpty
         ? null
-        : (photos.toList()..sort((a, b) => b.capturedAt.compareTo(a.capturedAt))).first;
+        : (photos.toList()
+                ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt)))
+              .first;
     final latestLabel = latestPhoto == null
         ? 'No incidents captured yet'
         : 'Latest capture ${_formatCapturedAt(latestPhoto.capturedAt)}';
@@ -1078,7 +1113,7 @@ class _IncidentSection extends StatelessWidget {
                     Expanded(
                       child: _IncidentMetricChip(
                         value: photos.length.toString(),
-                        label: 'Total photos',
+                        label: 'Total',
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1104,7 +1139,7 @@ class _IncidentSection extends StatelessWidget {
       ),
     );
   }
-  
+
   static String _formatCapturedAt(DateTime capturedAt) {
     final local = capturedAt.toLocal();
     final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
@@ -1115,10 +1150,7 @@ class _IncidentSection extends StatelessWidget {
 }
 
 class _IncidentMetricChip extends StatelessWidget {
-  const _IncidentMetricChip({
-    required this.value,
-    required this.label,
-  });
+  const _IncidentMetricChip({required this.value, required this.label});
 
   final String value;
   final String label;
@@ -1190,10 +1222,7 @@ class _PromoGallery extends StatelessWidget {
 }
 
 class _NoticeSection extends StatelessWidget {
-  const _NoticeSection({
-    required this.notices,
-    required this.onOpenAll,
-  });
+  const _NoticeSection({required this.notices, required this.onOpenAll});
 
   final List<SocietyNoticeData> notices;
   final VoidCallback onOpenAll;
@@ -1225,22 +1254,19 @@ class _NoticeSection extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Text(
-                'See all',
-                style: TextStyle(
-                  color: _SocietyHomeScreenState._textSecondary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+                    'See all',
+                    style: TextStyle(
+                      color: _SocietyHomeScreenState._textSecondary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           for (var i = 0; i < notices.length; i++) ...[
-            _NoticeCard(
-              data: notices[i],
-              onTap: onOpenAll,
-            ),
+            _NoticeCard(data: notices[i], onTap: onOpenAll),
             if (i < notices.length - 1) const SizedBox(height: 12),
           ],
         ],
@@ -1265,12 +1291,7 @@ class _SocietyFeatureGrid extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: items
-          .map(
-            (item) => SizedBox(
-              width: 140,
-              child: _MiniTile(data: item),
-            ),
-          )
+          .map((item) => SizedBox(width: 140, child: _MiniTile(data: item)))
           .toList(growable: false),
     );
   }
@@ -1305,12 +1326,7 @@ class _ServicesGrid extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: items
-          .map(
-            (item) => SizedBox(
-              width: 140,
-              child: _ServiceTile(data: item),
-            ),
-          )
+          .map((item) => SizedBox(width: 140, child: _ServiceTile(data: item)))
           .toList(growable: false),
     );
   }
@@ -1428,7 +1444,9 @@ class _ActionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F5F3),
                     shape: data.square ? BoxShape.rectangle : BoxShape.circle,
-                    borderRadius: data.square ? BorderRadius.circular(20) : null,
+                    borderRadius: data.square
+                        ? BorderRadius.circular(20)
+                        : null,
                   ),
                   child: Icon(data.icon, color: accent, size: 30),
                 ),
@@ -1443,7 +1461,11 @@ class _ActionCard extends StatelessWidget {
                         color: accent.withValues(alpha: 0.9),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.add, size: 16, color: Colors.white),
+                      child: const Icon(
+                        Icons.add,
+                        size: 16,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
               ],
@@ -1627,7 +1649,11 @@ class _HomeListingCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.home_work_rounded, color: Color(0xFF4A8A72), size: 34),
+            child: const Icon(
+              Icons.home_work_rounded,
+              color: Color(0xFF4A8A72),
+              size: 34,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1651,7 +1677,10 @@ class _HomeListingCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
@@ -1682,10 +1711,7 @@ class _HomeListingCard extends StatelessWidget {
 }
 
 class _PromoBanner extends StatelessWidget {
-  const _PromoBanner({
-    required this.text,
-    required this.kind,
-  });
+  const _PromoBanner({required this.text, required this.kind});
 
   final String text;
   final _PromoKind kind;
@@ -1874,10 +1900,7 @@ class _PromoCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             data.subtitle,
-            style: const TextStyle(
-              color: Color(0xFFD9E6F4),
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Color(0xFFD9E6F4), fontSize: 14),
           ),
           const Spacer(),
           Align(
@@ -1891,10 +1914,7 @@ class _PromoCard extends StatelessWidget {
 }
 
 class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({
-    required this.data,
-    required this.onTap,
-  });
+  const _NoticeCard({required this.data, required this.onTap});
 
   final SocietyNoticeData data;
   final VoidCallback onTap;
@@ -1921,7 +1941,11 @@ class _NoticeCard extends StatelessWidget {
                   color: const Color(0xFFEAF1FF),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Icon(Icons.directions_car_filled_rounded, color: Color(0xFF4067B3), size: 34),
+                child: const Icon(
+                  Icons.directions_car_filled_rounded,
+                  color: Color(0xFF4067B3),
+                  size: 34,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1930,7 +1954,11 @@ class _NoticeCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.circle, color: Color(0xFFFF4862), size: 10),
+                        const Icon(
+                          Icons.circle,
+                          color: Color(0xFFFF4862),
+                          size: 10,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -2032,20 +2060,14 @@ class _WeatherBadge extends StatelessWidget {
       ),
       child: const Text(
         'Windy 27°',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       ),
     );
   }
 }
 
 class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.title,
-    required this.subtitle,
-  });
+  const _MetricTile({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
@@ -2072,10 +2094,7 @@ class _MetricTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Color(0xFFD3D9E7),
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: Color(0xFFD3D9E7), fontSize: 13),
           ),
         ],
       ),
@@ -2112,22 +2131,31 @@ class _BottomNavigationBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 onTap: () => onTap(i),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         items[i].icon,
-                        color: i == currentIndex ? _SocietyHomeScreenState._fabColor : Colors.black,
+                        color: i == currentIndex
+                            ? _SocietyHomeScreenState._fabColor
+                            : Colors.black,
                         size: 30,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         items[i].label,
                         style: TextStyle(
-                          color: i == currentIndex ? _SocietyHomeScreenState._fabColor : Colors.black,
+                          color: i == currentIndex
+                              ? _SocietyHomeScreenState._fabColor
+                              : Colors.black,
                           fontSize: 13,
-                          fontWeight: i == currentIndex ? FontWeight.w800 : FontWeight.w500,
+                          fontWeight: i == currentIndex
+                              ? FontWeight.w800
+                              : FontWeight.w500,
                         ),
                       ),
                     ],
