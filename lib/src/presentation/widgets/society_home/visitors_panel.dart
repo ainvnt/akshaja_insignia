@@ -3,97 +3,67 @@ import 'package:akshaja_insignia/src/presentation/widgets/society_home/society_h
 import 'package:flutter/material.dart';
 
 class SocietyHomeVisitorsPanel extends StatelessWidget {
-  const SocietyHomeVisitorsPanel({
-    super.key,
-    required this.actions,
-  });
+  const SocietyHomeVisitorsPanel({super.key, required this.actions});
 
   final List<CircleActionData> actions;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAF7F4),
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: actions
-                .map((action) => _CircleActionButton(data: action))
+                .map((action) => _SimpleActionButton(data: action))
                 .toList(growable: false),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFDFDFD), Color(0xFFEAE7E1)],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAF7F4),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.home_repair_service_rounded,
+                color: const Color(0xFFD1801F),
+                size: 24,
               ),
-            ),
-            child: const Row(
-              children: [
-                _VisitorsPromoThumbnail(),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Vellfire:Calming Luxury!',
-                    style: TextStyle(
-                      color: Color(0xFF3A3834),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Book daily services in minutes',
+                  style: const TextStyle(
+                    color: Color(0xFF3A3834),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Color(0xFF5A564F),
-                ),
-              ],
-            ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF8A7E65),
+                size: 20,
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VisitorsPromoThumbnail extends StatelessWidget {
-  const _VisitorsPromoThumbnail();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 34,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6E6C72), Color(0xFF25262B)],
         ),
-      ),
-      child: const Icon(
-        Icons.directions_car_filled_rounded,
-        color: Colors.white,
-        size: 24,
-      ),
+      ],
     );
   }
 }
 
-class _CircleActionButton extends StatelessWidget {
-  const _CircleActionButton({required this.data});
+class _SimpleActionButton extends StatelessWidget {
+  const _SimpleActionButton({required this.data});
 
   final CircleActionData data;
 
@@ -101,40 +71,25 @@ class _CircleActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 66,
-              height: 66,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1FAF7),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(data.icon, size: 32, color: Color(0xFF5A9E90)),
-            ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF56A996),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add, size: 16, color: Colors.white),
-              ),
-            ),
-          ],
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F1EC),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(data.icon, size: 24, color: const Color(0xFF8A7E65)),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
           data.label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: SocietyHomePalette.primaryText,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            color: Color(0xFF3A3834),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

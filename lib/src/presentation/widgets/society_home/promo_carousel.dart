@@ -2,19 +2,17 @@ import 'package:akshaja_insignia/src/presentation/models/society_home_models.dar
 import 'package:flutter/material.dart';
 
 class SocietyHomePromoCarousel extends StatelessWidget {
-  const SocietyHomePromoCarousel({
-    super.key,
-    required this.promos,
-  });
+  const SocietyHomePromoCarousel({super.key, required this.promos});
 
   final List<PromoCardData> promos;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
         SizedBox(
-          height: 210,
+          height: 190,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: promos.length,
@@ -22,16 +20,25 @@ class SocietyHomePromoCarousel extends StatelessWidget {
             itemBuilder: (context, index) => _PromoCard(data: promos[index]),
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            _CarouselDot(active: true, wide: true),
-            _CarouselDot(active: false),
-            _CarouselDot(active: false),
-            _CarouselDot(active: false),
-            _CarouselDot(active: false),
-          ],
+        Positioned(
+          bottom: 12,
+          right: 12,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE91E34),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE91E34).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add, color: Colors.white, size: 24),
+          ),
         ),
       ],
     );
@@ -46,10 +53,10 @@ class _PromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
-      padding: const EdgeInsets.all(18),
+      width: 280,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           colors: [data.primary, data.secondary],
           begin: Alignment.topLeft,
@@ -65,65 +72,31 @@ class _PromoCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             data.subtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
-          Container(
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Center(
-              child: Icon(data.icon, size: 42, color: Colors.white),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Know More',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Icon(
+              data.icon,
+              size: 32,
+              color: Colors.white.withValues(alpha: 0.8),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CarouselDot extends StatelessWidget {
-  const _CarouselDot({
-    required this.active,
-    this.wide = false,
-  });
-
-  final bool active;
-  final bool wide;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: wide ? 34 : 8,
-      height: 8,
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFF8A7E65) : const Color(0xFFD9D1C6),
-        borderRadius: BorderRadius.circular(99),
       ),
     );
   }

@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 
 class ShortcutTabData {
-  const ShortcutTabData(this.label, this.icon, this.selected);
+  const ShortcutTabData(this.label, this.icon);
 
   final String label;
   final IconData icon;
-  final bool selected;
 }
 
 class CircleActionData {
-  const CircleActionData(this.label, this.icon);
+  const CircleActionData(
+    this.label,
+    this.icon, {
+    this.showAddBadge = false,
+    this.square = false,
+  });
 
   final String label;
   final IconData icon;
+  final bool showAddBadge;
+  final bool square;
 }
 
 class QuickActionData {
@@ -48,4 +54,18 @@ class BottomNavData {
 
   final String label;
   final IconData icon;
+}
+
+class SocietyNoticeData {
+  const SocietyNoticeData({
+    required this.title,
+    required this.body,
+    required this.timeLabel,
+    this.fullBody,
+  });
+
+  final String title;
+  final String body;
+  final String timeLabel;
+  final String? fullBody;
 }
