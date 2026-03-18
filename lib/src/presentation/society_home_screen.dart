@@ -1,11 +1,8 @@
 import 'package:akshaja_insignia/src/presentation/models/society_home_models.dart';
-import 'package:akshaja_insignia/src/presentation/models/date_folder_group.dart';
 import 'package:akshaja_insignia/src/presentation/camera_capture_screen.dart';
-import 'package:akshaja_insignia/src/presentation/date_folder_gallery_screen.dart';
+import 'package:akshaja_insignia/src/presentation/home_screen.dart';
 import 'package:akshaja_insignia/src/presentation/society_notices_screen.dart';
 import 'package:akshaja_insignia/src/presentation/visitors_detail_screen.dart';
-import 'package:akshaja_insignia/src/presentation/widgets/date_folder_tile.dart';
-import 'package:akshaja_insignia/src/presentation/widgets/home_summary_card.dart';
 import 'package:akshaja_insignia/src/repositories/photo_repository.dart';
 import 'package:akshaja_insignia/src/domain/photo_record.dart';
 import 'package:flutter/material.dart';
@@ -218,6 +215,7 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
   int _selectedSectionIndex = 0;
   int _selectedBottomIndex = 0;
   List<PhotoRecord> _incidentPhotos = const <PhotoRecord>[];
+  Offset? _cameraButtonOffset;
 
   @override
   void initState() {
@@ -228,22 +226,9 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final section = _sections[_selectedSectionIndex];
-    final fab = _floatingActionConfig();
 
     return Scaffold(
       backgroundColor: _backgroundColor,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 18),
-        child: FloatingActionButton(
-          backgroundColor: _fabColor,
-          foregroundColor: Colors.white,
-          elevation: 3,
-          shape: const CircleBorder(),
-          onPressed: fab.onPressed,
-          child: Icon(fab.icon, size: 34),
-        ),
-      ),
       bottomNavigationBar: _BottomNavigationBar(
         items: _bottomNavItems,
         currentIndex: _selectedBottomIndex,
@@ -254,9 +239,58 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
         },
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 140),
-          child: _buildCurrentPage(section),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final buttonOffset = _effectiveCameraButtonOffset(constraints);
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 140),
+                    child: _buildCurrentPage(section),
+                  ),
+                ),
+                Positioned(
+                  left: buttonOffset.dx,
+                  top: buttonOffset.dy,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanUpdate: (details) {
+                      setState(() {
+                        _cameraButtonOffset = _clampCameraOffset(
+                          buttonOffset + details.delta,
+                          constraints,
+                        );
+                      });
+                    },
+                    onTap: _openCameraCapture,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: _fabColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        size: 34,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -318,9 +352,8 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
             ),
             const SizedBox(height: 18),
             _IncidentSection(
-              repository: widget.repository,
               photos: _incidentPhotos,
-              onOpenCamera: _openCameraCapture,
+              onOpen: _openIncidentScreen,
             ),
             const SizedBox(height: 18),
             _PromoGallery(cards: _promotions),
@@ -421,41 +454,6 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
     }
   }
 
-  _FabConfig _floatingActionConfig() {
-    switch (_selectedBottomIndex) {
-      case 2:
-        return _FabConfig(
-          icon: Icons.edit_rounded,
-          onPressed: () => _showTabMessage('Create a forum post'),
-        );
-      case 3:
-        return _FabConfig(
-          icon: Icons.room_service_rounded,
-          onPressed: () => _showTabMessage('Book a service'),
-        );
-      case 4:
-        return _FabConfig(
-          icon: Icons.add_home_work_outlined,
-          onPressed: () => _showTabMessage('Add a home listing'),
-        );
-      default:
-        return _FabConfig(
-          icon: _selectedBottomIndex == 0
-              ? Icons.camera_alt_rounded
-              : Icons.add,
-          onPressed: _selectedBottomIndex == 0
-              ? _openCameraCapture
-              : () => _showTabMessage('Primary action coming soon'),
-        );
-    }
-  }
-
-  void _showTabMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
   Future<void> _openCameraCapture() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -468,6 +466,16 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
     }
   }
 
+  Future<void> _openIncidentScreen() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => HomeScreen(repository: widget.repository),
+      ),
+    );
+
+    await _loadIncidentPhotos();
+  }
+
   Future<void> _loadIncidentPhotos() async {
     final records = await widget.repository.getAllPhotos();
     if (!mounted) {
@@ -476,6 +484,27 @@ class _SocietyHomeScreenState extends State<SocietyHomeScreen> {
     setState(() {
       _incidentPhotos = records;
     });
+  }
+
+  Offset _effectiveCameraButtonOffset(BoxConstraints constraints) {
+    final fallback = Offset(
+      constraints.maxWidth - 72 - 18,
+      constraints.maxHeight - 72 - 28,
+    );
+
+    return _clampCameraOffset(_cameraButtonOffset ?? fallback, constraints);
+  }
+
+  Offset _clampCameraOffset(Offset candidate, BoxConstraints constraints) {
+    const minInset = 8.0;
+    const buttonSize = 56.0;
+    final maxX = constraints.maxWidth - buttonSize - minInset;
+    final maxY = constraints.maxHeight - buttonSize - minInset;
+
+    return Offset(
+      candidate.dx.clamp(minInset, maxX),
+      candidate.dy.clamp(minInset, maxY),
+    );
   }
 }
 
@@ -953,182 +982,173 @@ class _ActionRail extends StatelessWidget {
 
 class _IncidentSection extends StatelessWidget {
   const _IncidentSection({
-    required this.repository,
     required this.photos,
-    required this.onOpenCamera,
+    required this.onOpen,
   });
 
-  final PhotoRepository repository;
   final List<PhotoRecord> photos;
-  final VoidCallback onOpenCamera;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final folders = _buildDateFolders();
     final uploadedCount = photos
         .where((photo) => photo.uploadStatus == UploadStatus.uploaded)
         .length;
     final pendingCount = photos
         .where((photo) => photo.uploadStatus == UploadStatus.pending)
         .length;
+    final latestPhoto = photos.isEmpty
+        ? null
+        : (photos.toList()..sort((a, b) => b.capturedAt.compareTo(a.capturedAt))).first;
+    final latestLabel = latestPhoto == null
+        ? 'No incidents captured yet'
+        : 'Latest capture ${_formatCapturedAt(latestPhoto.capturedAt)}';
 
     return _SectionCard(
       title: 'Incident Capture',
-      trailing: 'Camera',
-      badge: folders.isEmpty ? 'New' : null,
-      child: Column(
-        children: [
-          HomeSummaryCard(
-            totalPhotos: photos.length,
-            uploadedPhotos: uploadedCount,
-            pendingPhotos: pendingCount,
-            infoText: folders.isEmpty
-                ? 'No incident folders yet'
-                : '${folders.length} folder(s) available',
-            infoTrailing: TextButton.icon(
-              onPressed: onOpenCamera,
-              icon: const Icon(Icons.camera_alt_rounded, size: 18),
-              label: const Text('Capture'),
-            ),
-            rangePhotos: photos.length,
-          ),
-          const SizedBox(height: 12),
-          if (folders.isEmpty)
-            _IncidentEmptyState(onOpenCamera: onOpenCamera)
-          else
-            Column(
+      trailing: 'Open',
+      badge: photos.isEmpty ? 'New' : null,
+      child: Material(
+        color: const Color(0xFFF8F5EF),
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var i = 0; i < folders.length && i < 4; i++) ...[
-                  DateFolderTile(
-                    folder: folders[i],
-                    menuEnabled: false,
-                    onDeleteLocal: () {},
-                    onDeleteFolder: () {},
-                    onOpen: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => DateFolderGalleryScreen(
-                            dateKey: folders[i].key,
-                            photos: folders[i].photos,
-                            repository: repository,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  if (i < folders.length - 1 && i < 3)
-                    const SizedBox(height: 10),
-                ],
-                if (folders.length > 4) ...[
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '+${folders.length - 4} more folder(s)',
-                      style: const TextStyle(
-                        color: _SocietyHomeScreenState._textSecondary,
-                        fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFE9DE),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        Icons.camera_outdoor_rounded,
+                        color: Color(0xFFE96B4C),
+                        size: 28,
                       ),
                     ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Incident gallery',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: _SocietyHomeScreenState._textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            latestLabel,
+                            style: const TextStyle(
+                              color: _SocietyHomeScreenState._textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: _SocietyHomeScreenState._textSecondary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Open the dedicated incident screen for folders, uploads, and camera capture.',
+                  style: TextStyle(
+                    color: _SocietyHomeScreenState._textSecondary,
+                    height: 1.35,
                   ),
-                ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _IncidentMetricChip(
+                        value: photos.length.toString(),
+                        label: 'Total photos',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _IncidentMetricChip(
+                        value: uploadedCount.toString(),
+                        label: 'Uploaded',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _IncidentMetricChip(
+                        value: pendingCount.toString(),
+                        label: 'Pending',
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
-
-  List<DateFolderGroup> _buildDateFolders() {
-    final folderMap = <String, List<PhotoRecord>>{};
-    for (final photo in photos) {
-      final key = _directoryLabel(photo);
-      folderMap.putIfAbsent(key, () => <PhotoRecord>[]).add(photo);
-    }
-
-    final keys = folderMap.keys.toList()..sort((a, b) => b.compareTo(a));
-
-    return keys
-        .map(
-          (key) => DateFolderGroup(
-            key: key,
-            photos: folderMap[key] ?? const <PhotoRecord>[],
-          ),
-        )
-        .toList();
-  }
-
-  String _directoryLabel(PhotoRecord photo) {
-    final key = _dateFolderKey(photo.filePath);
-    if (key.isNotEmpty) {
-      return key;
-    }
-    final local = photo.capturedAt.toLocal();
-    return '${local.year.toString().padLeft(4, '0')}/${local.month.toString().padLeft(2, '0')}/${local.day.toString().padLeft(2, '0')}';
-  }
-
-  String _dateFolderKey(String filePath) {
-    final normalized = filePath.replaceAll('\\', '/');
-    const marker = '/photos/';
-    final markerIndex = normalized.lastIndexOf(marker);
-
-    if (markerIndex == -1) {
-      return '';
-    }
-
-    final afterPhotos = normalized.substring(markerIndex + marker.length);
-    final parts = afterPhotos.split('/');
-    if (parts.length < 4) {
-      return '';
-    }
-
-    return '${parts[0]}/${parts[1]}/${parts[2]}';
+  
+  static String _formatCapturedAt(DateTime capturedAt) {
+    final local = capturedAt.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final suffix = local.hour >= 12 ? 'PM' : 'AM';
+    return '${local.day}/${local.month}/${local.year} at $hour:$minute $suffix';
   }
 }
 
-class _IncidentEmptyState extends StatelessWidget {
-  const _IncidentEmptyState({required this.onOpenCamera});
+class _IncidentMetricChip extends StatelessWidget {
+  const _IncidentMetricChip({
+    required this.value,
+    required this.label,
+  });
 
-  final VoidCallback onOpenCamera;
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F5EF),
-        borderRadius: BorderRadius.circular(22),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.camera_alt_outlined,
-            size: 34,
-            color: Color(0xFF6E655A),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'No incident folders available.',
-            style: TextStyle(
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: _SocietyHomeScreenState._textPrimary,
-              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Capture a photo to start building the folder-based incident view.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
               color: _SocietyHomeScreenState._textSecondary,
-              height: 1.35,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onOpenCamera,
-            icon: const Icon(Icons.camera_alt_rounded),
-            label: const Text('Open Camera'),
           ),
         ],
       ),
@@ -2251,16 +2271,6 @@ class _BottomNavData {
 
   final String label;
   final IconData icon;
-}
-
-class _FabConfig {
-  const _FabConfig({
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
 }
 
 enum _ActionKind { none, visitors }
